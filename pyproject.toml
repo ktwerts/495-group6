@@ -1,0 +1,31 @@
+[project]
+name = "shiftwise-ai"
+version = "0.1.0"
+description = "Intelligent workforce scheduling with staffing-demand forecasting"
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
+
+[tool.coverage.run]
+source = ["app"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# E/W: style, F: errors, I: import order, B: likely bugs, UP: modern syntax, S: security
+select = ["E", "W", "F", "I", "B", "UP", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S105", "S106"]  # asserts and test passwords are fine in tests
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv"]

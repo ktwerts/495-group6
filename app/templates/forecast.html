@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Forecast · ShiftWise AI{% endblock %}
+{% block content %}
+<h1>Staffing forecast</h1>
+<p class="muted">Owner: Integration Lead</p>
+
+{#
+  TODO:
+  - Table of predicted staff needed vs. scheduled per day, from /api/forecast?days=7
+  - Highlight understaffed days; show model accuracy vs. a baseline
+  - Button to retrain the model
+  Use the helpers in static/js/app.js (api, esc, formData, showMessage, showError).
+#}
+<div id="forecast"></div>
+{% endblock %}
+{% block scripts %}
+<script>
+  api('/api/forecast?days=7')
+    .then(data => { document.getElementById('forecast').textContent = JSON.stringify(data); })
+    .catch(showError);
+</script>
+{% endblock %}

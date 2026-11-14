@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Employees · ShiftWise AI{% endblock %}
+{% block content %}
+<h1>Employees</h1>
+<p class="muted">Owner: Interface Designer</p>
+
+{#
+  TODO:
+  - Table of employees (name, position, qualifications, availability) loaded from /api/employees
+  - Form to add an employee, and a way to edit availability
+  Use the helpers in static/js/app.js: api() for requests, esc() before inserting
+  any data into HTML, formData() for forms, showMessage() / showError() for feedback.
+#}
+<div id="employees"></div>
+{% endblock %}
+{% block scripts %}
+<script>
+  api('/api/employees')
+    .then(list => { document.getElementById('employees').textContent = `${list.length} employees`; })
+    .catch(showError);
+</script>
+{% endblock %}

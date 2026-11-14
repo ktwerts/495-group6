@@ -1,0 +1,6 @@
+# Normalize line endings so Windows and macOS teammates don't produce noisy diffs.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.sqlite binary
+*.joblib binary

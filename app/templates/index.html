@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>ShiftWise AI</h1>
+<p class="lead">Predict staffing needs, catch scheduling conflicts, and cover absences fast.</p>
+{% if g.user and g.user['role'] == 'manager' %}
+  <div class="cards">
+    <a class="card" href="{{ url_for('employees.employees_page') }}">
+      <h2>Employees</h2><p>Manage staff, qualifications and availability.</p>
+    </a>
+    <a class="card" href="{{ url_for('scheduling.schedule_page') }}">
+      <h2>Schedule</h2><p>Create shifts, report absences, approve replacements.</p>
+    </a>
+    <a class="card" href="{{ url_for('forecasting.forecast_page') }}">
+      <h2>Forecast</h2><p>Predicted staff needed vs. scheduled for the coming days.</p>
+    </a>
+  </div>
+{% elif g.user %}
+  <h2>My shifts</h2>
+  {# TODO(Lead Architect): show the logged-in employee's upcoming shifts. #}
+  <p class="muted">Coming soon.</p>
+{% else %}
+  <p><a class="btn" href="{{ url_for('auth.login_page') }}">Log in to get started</a></p>
+{% endif %}
+{% endblock %}

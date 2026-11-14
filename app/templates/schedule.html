@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Schedule · ShiftWise AI{% endblock %}
+{% block content %}
+<h1>Schedule</h1>
+<p class="muted">Owner: Lead Architect</p>
+
+{#
+  TODO:
+  - List upcoming shifts from /api/shifts and show which ones are open
+  - Create a shift; report an absence
+  - "Find cover" on an open shift -> show ranked replacements -> manager approves
+  Use the helpers in static/js/app.js (api, esc, formData, showMessage, showError).
+#}
+<div id="shifts"></div>
+{% endblock %}
+{% block scripts %}
+<script>
+  api('/api/shifts')
+    .then(shifts => { document.getElementById('shifts').textContent = `${shifts.length} shifts`; })
+    .catch(showError);
+</script>
+{% endblock %}

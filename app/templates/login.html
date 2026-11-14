@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Log in · ShiftWise AI{% endblock %}
+{% block content %}
+<h1>Log in</h1>
+<form id="login-form" class="form narrow">
+  <label>Username <input name="username" autocomplete="username" required></label>
+  <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+  <button class="btn" type="submit">Log in</button>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+  document.getElementById('login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try {
+      await api('/api/auth/login', { method: 'POST', body: formData(e.target) });
+      window.location.href = '/';
+    } catch (err) { showError(err); }
+  });
+</script>
+{% endblock %}
