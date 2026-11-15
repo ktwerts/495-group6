@@ -2,21 +2,44 @@
 {% block title %}Employees · ShiftWise AI{% endblock %}
 {% block content %}
 <h1>Employees</h1>
-<p class="muted">Owner: Interface Designer</p>
-
-{#
-  TODO:
-  - Table of employees (name, position, qualifications, availability) loaded from /api/employees
-  - Form to add an employee, and a way to edit availability
-  Use the helpers in static/js/app.js: api() for requests, esc() before inserting
-  any data into HTML, formData() for forms, showMessage() / showError() for feedback.
-#}
-<div id="employees"></div>
+<p id="employees-status" role="status">Loading employees…</p>
+<table id="employees-table" hidden>
+  <thead>
+    <tr>
+      <th scope="col">Name</th>
+      <th scope="col">Position</th>
+      <th scope="col">Qualifications</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
 {% endblock %}
 {% block scripts %}
 <script>
-  api('/api/employees')
-    .then(list => { document.getElementById('employees').textContent = `${list.length} employees`; })
-    .catch(showError);
+  const status = document.getElementById('employees-status');
+const table = document.getElementById('employees-table');
+const body = table.tBodies[0];
+
+api('/api/employees')
+  .then(employees => {
+    if (employees.length === 0) {
+      status.textContent = 'No active employees.';
+      return;
+    }
+
+    for (const employee of employees) {
+      const row = body.insertRow();
+      row.insertCell().textContent = employee.name;
+      row.insertCell().textContent = employee.position;
+      row.insertCell().textContent = employee.qualifications.join(', ') || '—';
+    }
+
+    status.hidden = true;
+    table.hidden = false;
+  })
+  .catch(error => {
+    status.hidden = true;
+    showError(error);
+  });
 </script>
 {% endblock %}

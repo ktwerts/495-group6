@@ -4,6 +4,7 @@ import os
 import secrets
 
 from app.auth.service import create_user
+from app.db import get_db
 
 
 def seed_all() -> str | None:
@@ -21,4 +22,20 @@ def seed_all() -> str | None:
     if not password:
         password = generated = secrets.token_urlsafe(12)
     create_user("manager", password, "manager")
+    db = get_db()
+    employee = db.execute(
+        """
+        INSERT INTO employees (name, position, qualifications, max_weekly_hours)
+        VALUES (?, ?, ?, ?)
+        """,
+        ("Sam Rivera", "Cook", '["food safety"]', 32),
+    )
+    db.execute(
+        """
+        INSERT INTO availability (employee_id, day_of_week, start_time, end_time)
+        VALUES (?, ?, ?, ?)
+        """,
+        (employee.lastrowid, 0, "09:00", "17:00"),
+    )
+    db.commit()
     return generated

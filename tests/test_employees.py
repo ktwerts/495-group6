@@ -7,6 +7,8 @@ Fixtures available: client, manager (logged-in manager), staff (logged-in employ
 
 import pytest
 
+from app.db import get_db
+
 TODO = pytest.mark.skip(reason="TODO: implement employees module")
 
 
@@ -21,9 +23,46 @@ def test_create_employee_rejects_missing_name(manager):
     assert manager.post("/api/employees", json={"position": "Cook"}).status_code == 400
 
 
-@TODO
 def test_list_employees(manager):
-    assert manager.get("/api/employees").status_code == 200
+    response = manager.get("/api/employees")
+
+    assert response.status_code == 200
+    assert response.get_json() == []
+
+
+def test_list_employees_returns_only_active_records(app, manager):
+    with app.app_context():
+        db = get_db()
+        db.executemany(
+            "INSERT INTO employees "
+            "(name, position, qualifications, max_weekly_hours, active) "
+            "VALUES (?, ?, ?, ?, ?)",
+            [
+                ("Sam Rivera", "Cook", '["food safety"]', 32, 1),
+                ("Alex Chen", "Cook", "[]", 24, 0),
+            ],
+        )
+        db.execute(
+            """
+            INSERT INTO availability (employee_id, day_of_week, start_time, end_time)
+            SELECT id, ?, ?, ? FROM employees WHERE name = ?
+            """,
+            (0, "09:00", "17:00", "Sam Rivera"),
+        )
+        db.commit()
+
+    response = manager.get("/api/employees")
+
+    assert response.status_code == 200
+    employees = response.get_json()
+    assert len(employees) == 1
+    assert employees[0]["name"] == "Sam Rivera"
+    assert employees[0]["position"] == "Cook"
+    assert employees[0]["qualifications"] == ["food safety"]
+    assert employees[0]["max_weekly_hours"] == 32
+    assert employees[0]["availability"] == [
+        {"day_of_week": 0, "start_time": "09:00", "end_time": "17:00"}
+    ]
 
 
 @TODO

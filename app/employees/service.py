@@ -13,12 +13,46 @@ Tips:
 - Delete each `raise NotImplementedError` as you implement the function.
 """
 
+import json
+from collections import defaultdict
 from app.db import get_db  # noqa: F401  (you'll need this)
 
 
 def list_employees(include_inactive: bool = False) -> list[dict]:
-    """Return employees as dicts (name, position, qualifications, max hours, availability)."""
-    raise NotImplementedError("employees.list_employees")
+    """Return employee records, defaulting to active employees only."""
+    rows = (
+        get_db()
+        .execute(
+            """
+        SELECT id, name, position, qualifications, max_weekly_hours, active
+        FROM employees
+        WHERE active = 1 OR ? = 1
+        ORDER BY id
+        """,
+            (include_inactive,),
+        )
+        .fetchall()
+    )
+    availability_by_employee = defaultdict(list)
+    slots = get_db().execute(
+        """
+        SELECT employee_id, day_of_week, start_time, end_time
+        FROM availability
+        ORDER BY employee_id, day_of_week, start_time, end_time
+        """
+    )
+    for row in slots:
+        slot = dict(row)
+        employee_id = slot.pop("employee_id")
+        availability_by_employee[employee_id].append(slot)
+    employees = []
+    for row in rows:
+        employee = dict(row)
+        employee["qualifications"] = json.loads(employee["qualifications"])
+        employee["availability"] = availability_by_employee[employee["id"]]
+        employees.append(employee)
+
+    return employees
 
 
 def get_employee(employee_id: int) -> dict:
