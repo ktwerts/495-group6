@@ -15,6 +15,7 @@ Tips:
 
 import json
 from collections import defaultdict
+
 from app.db import get_db  # noqa: F401  (you'll need this)
 
 
