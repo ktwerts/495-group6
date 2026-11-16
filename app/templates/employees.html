@@ -11,6 +11,31 @@
 
   <button type="submit" disabled>Add employee</button>
 </form>
+<form id="add-availability-form">
+  <label for="availability-employee">Employee</label>
+  <select id="availability-employee" name="employee_id" required>
+    <option value="">Select an employee</option>
+  </select>
+
+  <label for="availability-day">Day</label>
+  <select id="availability-day" name="day_of_week" required>
+    <option value="0">Monday</option>
+    <option value="1">Tuesday</option>
+    <option value="2">Wednesday</option>
+    <option value="3">Thursday</option>
+    <option value="4">Friday</option>
+    <option value="5">Saturday</option>
+    <option value="6">Sunday</option>
+  </select>
+
+  <label for="availability-start">Start time</label>
+  <input id="availability-start" name="start_time" type="time" required>
+
+  <label for="availability-end">End time</label>
+  <input id="availability-end" name="end_time" type="time" required>
+
+  <button type="submit" disabled>Add availability</button>
+</form>
 <p id="employees-status" role="status">Loading employees…</p>
 <table id="employees-table" hidden>
   <thead>
@@ -25,10 +50,13 @@
 {% endblock %}
 {% block scripts %}
 <script>
-  const employeeStatus = document.getElementById('employees-status');
+const employeeStatus = document.getElementById('employees-status');
 const employeeTable = document.getElementById('employees-table');
 const employeeForm = document.getElementById('add-employee-form');
 const addButton = employeeForm.querySelector('button');
+const availabilityForm = document.getElementById('add-availability-form');
+const availabilityEmployee = document.getElementById('availability-employee');
+const availabilityButton = availabilityForm.querySelector('button');
 
 function addEmployeeRow(employee) {
   const row = employeeTable.tBodies[0].insertRow();
@@ -37,6 +65,8 @@ function addEmployeeRow(employee) {
   row.insertCell().textContent = employee.qualifications.join(', ') || '—';
   employeeStatus.hidden = true;
   employeeTable.hidden = false;
+  availabilityEmployee.add(new Option(employee.name, employee.id));
+  availabilityButton.disabled = false;
 }
 
 api('/api/employees')
@@ -69,6 +99,24 @@ employeeForm.addEventListener('submit', async event => {
     showError(error);
   } finally {
     addButton.disabled = false;
+  }
+});
+availabilityForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const { employee_id, day_of_week, start_time, end_time } = formData(availabilityForm);
+  availabilityButton.disabled = true;
+
+  try {
+    await api(`/api/employees/${employee_id}/availability`, {
+      method: 'POST',
+      body: { day_of_week: Number(day_of_week), start_time, end_time },
+    });
+    availabilityForm.reset();
+    showMessage('Availability added.');
+  } catch (error) {
+    showError(error);
+  } finally {
+    availabilityButton.disabled = false;
   }
 });
 </script>

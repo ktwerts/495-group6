@@ -28,6 +28,13 @@ def create_employee():
     return jsonify(service.create_employee(data)), 201
 
 
+@bp.post("/api/employees/<int:employee_id>/availability")
+@role_required("manager")
+def add_availability(employee_id: int):
+    data = require_json(request.get_json(silent=True))
+    return jsonify(service.add_availability(employee_id, data)), 201
+
+
 # TODO(Interface Designer): add the rest of the employee endpoints you define in
 # docs/api-spec.md, for example create, get one, update, deactivate and set availability.
 # Use @role_required("manager") for manager-only routes and the helpers in

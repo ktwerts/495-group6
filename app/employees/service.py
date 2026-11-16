@@ -16,8 +16,9 @@ Tips:
 import json
 from collections import defaultdict
 
-from app.db import get_db  # noqa: F401  (you'll need this)
-from app.errors import ValidationError
+from app.db import get_db
+from app.errors import ConflictError, NotFoundError, ValidationError
+from app.validation import parse_time
 
 
 def list_employees(include_inactive: bool = False) -> list[dict]:
@@ -104,3 +105,34 @@ def get_availability(employee_id: int) -> list[dict]:
         (employee_id,),
     )
     return [dict(row) for row in rows]
+
+
+def add_availability(employee_id: int, data: dict) -> dict:
+    """Record one recurring weekly availability slot."""
+    day = data.get("day_of_week")
+    if type(day) is not int or not 0 <= day <= 6:
+        raise ValidationError("day_of_week must be an integer from 0 to 6")
+
+    start = parse_time(data.get("start_time"), "start_time")
+    end = parse_time(data.get("end_time"), "end_time")
+    if end <= start:
+        raise ValidationError("end_time must be after start_time")
+
+    db = get_db()
+    employee = db.execute("SELECT id FROM employees WHERE id = ?", (employee_id,)).fetchone()
+    if employee is None:
+        raise NotFoundError("Employee not found")
+
+    result = db.execute(
+        """
+        INSERT INTO availability (employee_id, day_of_week, start_time, end_time)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT (employee_id, day_of_week, start_time, end_time) DO NOTHING
+        """,
+        (employee_id, day, start, end),
+    )
+    if result.rowcount == 0:
+        raise ConflictError("This availability slot already exists")
+
+    db.commit()
+    return {"day_of_week": day, "start_time": start, "end_time": end}

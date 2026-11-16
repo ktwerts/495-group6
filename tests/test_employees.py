@@ -37,6 +37,20 @@ def test_create_employee_rejects_missing_name(manager):
     assert manager.post("/api/employees", json={"position": "Cook"}).status_code == 400
 
 
+def test_manager_can_add_employee_availability(manager):
+    created = manager.post("/api/employees", json={"name": "Alex Chen", "position": "Cook"})
+    assert created.status_code == 201
+    employee_id = created.get_json()["id"]
+    slot = {"day_of_week": 0, "start_time": "09:00", "end_time": "17:00"}
+
+    response = manager.post(f"/api/employees/{employee_id}/availability", json=slot)
+    assert response.status_code == 201
+
+    employees = manager.get("/api/employees").get_json()
+    alex = next(employee for employee in employees if employee["id"] == employee_id)
+    assert alex["availability"] == [slot]
+
+
 def test_list_employees(manager):
     response = manager.get("/api/employees")
 
@@ -105,9 +119,21 @@ def test_get_availability_returns_only_the_requested_employees_slots(app):
         assert get_availability(alex_id) == []
 
 
-@TODO
-def test_availability_validation(manager):
-    """Bad day numbers or start >= end should return 400."""
+@pytest.mark.parametrize(
+    "slot",
+    [
+        {"day_of_week": 7, "start_time": "09:00", "end_time": "17:00"},
+        {"day_of_week": 0, "start_time": "17:00", "end_time": "09:00"},
+    ],
+)
+def test_availability_validation(manager, slot):
+    created = manager.post("/api/employees", json={"name": "Alex Chen", "position": "Cook"})
+    assert created.status_code == 201
+    employee_id = created.get_json()["id"]
+
+    response = manager.post(f"/api/employees/{employee_id}/availability", json=slot)
+
+    assert response.status_code == 400
 
 
 @TODO

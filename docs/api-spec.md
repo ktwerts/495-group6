@@ -49,6 +49,14 @@ caller receives `401`, and a signed-in employee receives `403`.
 |--------|------|------|--------------|---------|--------|
 | GET | `/api/employees` | M | — | List of active employees (200) | Implemented |
 | POST | `/api/employees` | M | JSON with `name` and `position` | Created employee (201) | Implemented |
+| POST | `/api/employees/{employee_id}/availability` | M | JSON with `day_of_week`, `start_time`, and `end_time` | Recorded slot (201) | Implemented |
+
+To record a weekly availability slot, send `day_of_week` as an integer
+from `0` (Monday) to `6` (Sunday), with `start_time` and `end_time` in
+24-hour `HH:MM` format. The end time must be later than the start time
+on the same day. A successful request returns `201 Created` with the
+recorded slot. Invalid input returns `400`, an unknown employee returns
+`404`, and an exact duplicate slot returns `409`.
 
 _TODO: define the employee object (fields and types) with an example._
 
