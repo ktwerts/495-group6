@@ -11,7 +11,7 @@ before real use; **Medium** limits features or scale; **Low** is a cleanup.
 | ID | Area | Shortcut taken (where) | Interest (future cost) | Mitigation plan | Severity |
 |----|------|------------------------|------------------------|-----------------|----------|
 | TD-1 | auth | No login rate limiting or account lockout (`/api/auth/login` in `app/auth/routes.py`) | Passwords can be brute-forced | Add Flask-Limiter (e.g. 5 attempts per minute per IP and username) | High |
-| | | | | | |
+| TD-2 | employees | `create_employee` assigns a fixed 40-hour weekly limit so the Alpha form only needs name and position. | The saved limit can overstate availability for part-time staff. If Scheduling uses it to enforce weekly limits, it could recommend assignments beyond the employee's actual cap. | Let managers enter and edit a validated weekly limit, and test that Scheduling respects the stored value. | Medium |
 
 TD-1 is a real gap in the scaffold and a worked example of the format. Add your own entries
 below it as you build. Typical sources: hardcoded values, missing validation, slow queries,
