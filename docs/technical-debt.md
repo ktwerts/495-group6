@@ -11,6 +11,7 @@ before real use; **Medium** limits features or scale; **Low** is a cleanup.
 | ID | Area | Shortcut taken (where) | Interest (future cost) | Mitigation plan | Severity |
 |----|------|------------------------|------------------------|-----------------|----------|
 | TD-1 | auth | No login rate limiting or account lockout (`/api/auth/login` in `app/auth/routes.py`) | Passwords can be brute-forced | Add Flask-Limiter (e.g. 5 attempts per minute per IP and username) | High |
+| TD-3 | forecasting | Training data is **synthetic**: `generate_sample_history()` in `app/forecasting/history.py` invents workload and staffing from fixed rules plus noise | The model can only learn patterns we wrote into the generator, so its accuracy scores won't reflect a real workplace and could give false confidence in forecasts | Add a CSV import for real (or public) attendance and workload data; keep the weekday-average baseline comparison so the team can tell whether the model helps on real data | High |
 | | | | | | |
 
 TD-1 is a real gap in the scaffold and a worked example of the format. Add your own entries

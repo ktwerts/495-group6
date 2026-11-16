@@ -4,6 +4,7 @@ import os
 import secrets
 
 from app.auth.service import create_user
+from app.forecasting.history import seed_staffing_history
 
 
 def seed_all() -> str | None:
@@ -21,4 +22,5 @@ def seed_all() -> str | None:
     if not password:
         password = generated = secrets.token_urlsafe(12)
     create_user("manager", password, "manager")
+    seed_staffing_history()
     return generated
