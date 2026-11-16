@@ -65,6 +65,7 @@ def create_employee(data: dict) -> dict:
     """Validate input, insert an employee, and return it."""
     raise NotImplementedError("employees.create_employee")
 
+
 def get_availability(employee_id: int) -> list[dict]:
     """Return the employee's recorded weekly availability slots."""
     rows = get_db().execute(
