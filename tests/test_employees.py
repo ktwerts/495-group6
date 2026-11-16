@@ -8,6 +8,7 @@ Fixtures available: client, manager (logged-in manager), staff (logged-in employ
 import pytest
 
 from app.db import get_db
+from app.employees.service import get_availability
 
 TODO = pytest.mark.skip(reason="TODO: implement employees module")
 
@@ -63,6 +64,32 @@ def test_list_employees_returns_only_active_records(app, manager):
     assert employees[0]["availability"] == [
         {"day_of_week": 0, "start_time": "09:00", "end_time": "17:00"}
     ]
+
+
+def test_get_availability_returns_only_the_requested_employees_slots(app):
+    with app.app_context():
+        db = get_db()
+        employee_ids = []
+        for name in ("Sam Rivera", "Alex Chen"):
+            employee = db.execute(
+                "INSERT INTO employees (name, position, max_weekly_hours) VALUES (?, ?, ?)",
+                (name, "Cook", 32),
+            )
+            employee_ids.append(employee.lastrowid)
+
+        sam_id, alex_id = employee_ids
+        db.execute(
+            """
+            INSERT INTO availability (employee_id, day_of_week, start_time, end_time)
+            VALUES (?, ?, ?, ?)
+            """,
+            (sam_id, 0, "09:00", "17:00"),
+        )
+
+        assert get_availability(sam_id) == [
+            {"day_of_week": 0, "start_time": "09:00", "end_time": "17:00"}
+        ]
+        assert get_availability(alex_id) == []
 
 
 @TODO

@@ -65,10 +65,15 @@ def create_employee(data: dict) -> dict:
     """Validate input, insert an employee, and return it."""
     raise NotImplementedError("employees.create_employee")
 
-
 def get_availability(employee_id: int) -> list[dict]:
-    """Return the employee's weekly availability slots.
-
-    The scheduling module needs this to check whether someone can work a shift.
-    """
-    raise NotImplementedError("employees.get_availability")
+    """Return the employee's recorded weekly availability slots."""
+    rows = get_db().execute(
+        """
+        SELECT day_of_week, start_time, end_time
+        FROM availability
+        WHERE employee_id = ?
+        ORDER BY day_of_week, start_time, end_time
+        """,
+        (employee_id,),
+    )
+    return [dict(row) for row in rows]
