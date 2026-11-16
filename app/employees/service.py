@@ -17,6 +17,7 @@ import json
 from collections import defaultdict
 
 from app.db import get_db  # noqa: F401  (you'll need this)
+from app.errors import ValidationError
 
 
 def list_employees(include_inactive: bool = False) -> list[dict]:
@@ -62,8 +63,33 @@ def get_employee(employee_id: int) -> dict:
 
 
 def create_employee(data: dict) -> dict:
-    """Validate input, insert an employee, and return it."""
-    raise NotImplementedError("employees.create_employee")
+    """Create an active employee from a name and position."""
+    fields = {}
+    for field in ("name", "position"):
+        value = data.get(field)
+        if not isinstance(value, str) or not value.strip():
+            raise ValidationError(f"{field} must be a non-empty string")
+        fields[field] = value.strip()
+
+    max_weekly_hours = 40
+    db = get_db()
+    cursor = db.execute(
+        """
+        INSERT INTO employees (name, position, max_weekly_hours)
+        VALUES (?, ?, ?)
+        """,
+        (fields["name"], fields["position"], max_weekly_hours),
+    )
+    db.commit()
+
+    return {
+        "id": cursor.lastrowid,
+        **fields,
+        "qualifications": [],
+        "max_weekly_hours": max_weekly_hours,
+        "availability": [],
+        "active": 1,
+    }
 
 
 def get_availability(employee_id: int) -> list[dict]:

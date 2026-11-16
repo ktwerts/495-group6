@@ -38,10 +38,17 @@ endpoint change, so teammates can code against it.
 
 ## Employees (Interface Designer)
 
+To create an employee, send `name` and `position` as nonblank strings.
+Leading and trailing whitespace is trimmed. A successful request returns
+`201 Created` with `id`, `name`, `position`, `active` (integer `1`),
+`max_weekly_hours` (number, defaults to `40`), and empty `qualifications`
+and `availability` arrays. Invalid input returns `400`. A signed-out
+caller receives `401`, and a signed-in employee receives `403`.
+
 | Method | Path | Role | Body / query | Returns | Status |
 |--------|------|------|--------------|---------|--------|
-| GET | `/api/employees` | M | — | list of employees | Stub (501) |
-| _TODO_ | | | | | |
+| GET | `/api/employees` | M | — | List of active employees (200) | Implemented |
+| POST | `/api/employees` | M | JSON with `name` and `position` | Created employee (201) | Implemented |
 
 _TODO: define the employee object (fields and types) with an example._
 

@@ -13,13 +13,26 @@ from app.employees.service import get_availability
 TODO = pytest.mark.skip(reason="TODO: implement employees module")
 
 
-@TODO
 def test_create_employee(manager):
-    res = manager.post("/api/employees", json={"name": "Sam", "position": "Cook"})
-    assert res.status_code == 201
+    response = manager.post("/api/employees", json={"name": "Sam", "position": "Cook"})
+
+    assert response.status_code == 201
+    employee = response.get_json()
+    assert employee == {
+        "id": employee["id"],
+        "name": "Sam",
+        "position": "Cook",
+        "qualifications": [],
+        "max_weekly_hours": 40,
+        "availability": [],
+        "active": 1,
+    }
+
+    employee_list = manager.get("/api/employees")
+    assert employee_list.status_code == 200
+    assert employee in employee_list.get_json()
 
 
-@TODO
 def test_create_employee_rejects_missing_name(manager):
     assert manager.post("/api/employees", json={"position": "Cook"}).status_code == 400
 
