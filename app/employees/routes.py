@@ -20,11 +20,13 @@ def employees_page():
 def list_employees():
     return jsonify(service.list_employees())
 
+
 @bp.post("/api/employees")
 @role_required("manager")
 def create_employee():
     data = require_json(request.get_json(silent=True))
     return jsonify(service.create_employee(data)), 201
+
 
 # TODO(Interface Designer): add the rest of the employee endpoints you define in
 # docs/api-spec.md, for example create, get one, update, deactivate and set availability.
