@@ -66,6 +66,10 @@ def test_seed_command(app, monkeypatch):
     client = app.test_client()
     login = {"username": "manager", "password": "demo-password-1"}
     assert client.post("/api/auth/login", json=login).status_code == 200
+    response = client.get("/api/employees")
+
+    assert response.status_code == 200
+    assert any(employee["name"] == "Sam Rivera" for employee in response.get_json())
 
 
 def test_seed_generates_password_when_unset(app, monkeypatch):
