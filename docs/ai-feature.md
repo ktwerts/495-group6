@@ -37,13 +37,44 @@ targets a pattern in staffing demand:
 
 ## Model and evaluation (proposal risk 1: prediction accuracy)
 
-_TODO:_
+`StaffingForecaster` in `app/forecasting/model.py` wraps a scikit-learn
+`RandomForestRegressor` (100 trees, `min_samples_leaf=2`, fixed `random_state`).
 
-- Which scikit-learn model, and why?
-- How is it evaluated? (Use held-out data. For time series, train on older days and test on
-  newer ones.)
-- What baseline do you compare against, and what are the error numbers?
-- What happens with too little history?
+**Why a random forest:** staffing demand mixes a weekly cycle, seasonal effects and workload.
+A random forest picks up those non-linear interactions without feature scaling, handles a
+small dataset well, and gives the same result on every run with a fixed seed.
+
+**Evaluation:**
+
+- History is sorted by date. The oldest 80% trains the model and the newest 20% tests it, so
+  the model never learns from days that come after the ones it's scored on.
+- The error metric is mean absolute error (MAE), in staff per day.
+- The baseline is the average staff needed for that weekday, computed from the training days
+  only. `beats_baseline` reports whether the model is adding value.
+- After evaluation, the model is refit on all history for real predictions.
+
+Results on the 180-day seed data, at three different end dates:
+
+| History ends | Model MAE | Baseline MAE | Beats baseline |
+|--------------|-----------|--------------|----------------|
+| 2026-05-01 | 0.44 | 0.64 | Yes |
+| 2026-11-15 | 0.52 | 0.66 | Yes |
+| 2027-02-01 | 0.37 | 0.72 | Yes |
+
+These numbers come from synthetic data (TD-3), so they show the pipeline works, not that it
+would be this accurate on a real workplace.
+
+**Predictions:** for a future day, workload isn't known yet, so the model uses that weekday's
+average workload unless a value is passed in. Predictions are rounded **up** to a whole
+person, with a minimum of 1, because being one person short is worse than having one extra.
+
+**Too little history:**
+
+| History | Behavior |
+|---------|----------|
+| None | `train()` raises `ValueError` (the API turns it into a 400) |
+| Under 28 days | Falls back to the weekday average; `method` is `weekday_average` |
+| 28 days or more | Random forest; `method` is `random_forest` |
 
 ## Integration with the rest of the system
 
