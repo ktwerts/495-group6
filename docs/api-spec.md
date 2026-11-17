@@ -54,6 +54,7 @@ receives `401`. A signed-in employee receives `403`.
 | `id` | Integer | Unique employee ID |
 | `name` | String | Employee's display name |
 | `position` | String | Employee's job title |
+| `active` | Integer | `1` if the employee is active |
 | `qualifications` | Array of strings | Qualifications used to match shift requirements |
 | `max_weekly_hours` | Number | Maximum hours the employee can be scheduled per week |
 | `availability` | Array of objects | Recurring weekly availability slots |
@@ -67,6 +68,7 @@ Each availability slot contains `day_of_week` (integer, 0 for Monday through
     "id": 1,
     "name": "Sam Rivera",
     "position": "Cook",
+    "active": 1,
     "qualifications": ["food safety"],
     "max_weekly_hours": 32,
     "availability": [
