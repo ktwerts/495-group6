@@ -42,11 +42,14 @@ def seed_command() -> None:
     from app.seed import seed_all
 
     init_db()
-    password = seed_all()
-    click.echo("Seeded demo data. Login: 'manager'")
+    password, employee_password = seed_all()
+    click.echo("Seeded demo data. Logins: 'manager' and 'employee'")
     if password:
         click.echo(f"Generated password: {password}")
         click.echo("(Set SHIFTWISE_ADMIN_PASSWORD to choose your own.)")
+    if employee_password:
+        click.echo(f"Generated employee password: {employee_password}")
+        click.echo("(Set SHIFTWISE_EMPLOYEE_PASSWORD to choose your own.)")
 
 
 def init_app(app: Flask) -> None:

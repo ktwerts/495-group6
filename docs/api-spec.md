@@ -38,12 +38,69 @@ endpoint change, so teammates can code against it.
 
 ## Employees (Interface Designer)
 
+To create an employee, send `name` and `position` as nonblank strings.
+Leading and trailing whitespace is trimmed. Each field must be at most 100 characters after trimming. A successful request returns
+`201 Created` with `id`, `name`, `position`, `active` (integer `1`),
+`max_weekly_hours` (number, defaults to `40`), and empty `qualifications`
+and `availability` arrays. Invalid input returns `400`. A signed-out
+caller receives `401`, and a signed-in employee receives `403`.
+
 | Method | Path | Role | Body / query | Returns | Status |
 |--------|------|------|--------------|---------|--------|
-| GET | `/api/employees` | M | — | list of employees | Stub (501) |
-| _TODO_ | | | | | |
+| GET | `/api/employees` | M | — | List of active employees (200) | Implemented |
+| POST | `/api/employees` | M | JSON with `name` and `position` | Created employee (201) | Implemented |
+| POST | `/api/employees/{employee_id}/availability` | M | JSON with `day_of_week`, `start_time`, and `end_time` | Recorded slot (201) | Implemented |
 
-_TODO: define the employee object (fields and types) with an example._
+To record a weekly availability slot, send `day_of_week` as an integer
+from `0` (Monday) to `6` (Sunday), with `start_time` and `end_time` in
+24-hour `HH:MM` format. The end time must be later than the start time
+on the same day. A successful request returns `201 Created` with the
+recorded slot. Invalid input returns `400`, an unknown employee returns `404`, and a slot that overlaps an existing slot for the same employee and weekday returns `409`. Back-to-back slots are allowed.
+
+**Response for `GET /api/employees`**
+
+A successful request returns `200 OK` and a JSON array of active employees.
+If there are no active employees, it returns `[]`. A caller who is signed out
+receives `401`. A signed-in employee receives `403`.
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `id` | Integer | Unique employee ID |
+| `name` | String | Employee's display name |
+| `position` | String | Employee's job title |
+| `active` | Integer | `1` if the employee is active |
+| `qualifications` | Array of strings | Qualifications used to match shift requirements |
+| `max_weekly_hours` | Number | Maximum hours the employee can be scheduled per week |
+| `availability` | Array of objects | Recurring weekly availability slots |
+
+Each availability slot contains `day_of_week` (integer, 0 for Monday through
+6 for Sunday), `start_time` (string, `HH:MM`), and `end_time` (string, `HH:MM`).
+
+```json
+[
+  {
+    "id": 1,
+    "name": "Sam Rivera",
+    "position": "Cook",
+    "active": 1,
+    "qualifications": ["food safety"],
+    "max_weekly_hours": 32,
+    "availability": [
+      {
+        "day_of_week": 0,
+        "start_time": "09:00",
+        "end_time": "17:00"
+      }
+    ]
+  }
+]
+```
+
+Proposed scheduling behavior: `availability: []` means the employee has no
+recorded availability and is ineligible for automatic replacement recommendations.
+
+For review with Scheduling: confirm the empty-availability rule and how
+qualification strings are matched.
 
 ## Scheduling (Lead Architect)
 

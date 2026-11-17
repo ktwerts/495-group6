@@ -7,6 +7,8 @@
 -- children before parents.
 
 DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS availability;
+DROP TABLE IF EXISTS employees;
 
 CREATE TABLE users (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -14,6 +16,23 @@ CREATE TABLE users (
     password_hash TEXT    NOT NULL,
     role          TEXT    NOT NULL CHECK (role IN ('manager', 'employee')),
     employee_id   INTEGER  -- TODO: REFERENCES employees (id) once that table exists
+);
+
+CREATE TABLE employees (
+    id       INTEGER PRIMARY KEY,
+    name     TEXT    NOT NULL,
+    position TEXT    NOT NULL,
+    qualifications   TEXT NOT NULL DEFAULT '[]',
+    max_weekly_hours REAL NOT NULL CHECK (max_weekly_hours > 0),
+    active   INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1))
+);
+
+CREATE TABLE availability (
+    employee_id INTEGER NOT NULL REFERENCES employees (id),
+    day_of_week INTEGER NOT NULL CHECK (day_of_week BETWEEN 0 AND 6),
+    start_time  TEXT    NOT NULL,
+    end_time    TEXT    NOT NULL CHECK (end_time > start_time),
+    PRIMARY KEY (employee_id, day_of_week, start_time, end_time)
 );
 
 -- TODO: tables the team still needs to design. Suggested starting points:

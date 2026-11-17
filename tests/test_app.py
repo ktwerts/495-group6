@@ -66,6 +66,26 @@ def test_seed_command(app, monkeypatch):
     client = app.test_client()
     login = {"username": "manager", "password": "demo-password-1"}
     assert client.post("/api/auth/login", json=login).status_code == 200
+    response = client.get("/api/employees")
+
+    assert response.status_code == 200
+    assert any(employee["name"] == "Sam Rivera" for employee in response.get_json())
+
+
+def test_seed_creates_employee_login(app, monkeypatch):
+    monkeypatch.setenv("SHIFTWISE_EMPLOYEE_PASSWORD", "demo-employee-test")
+    result = app.test_cli_runner().invoke(args=["seed"])
+    assert result.exit_code == 0, result.output
+
+    client = app.test_client()
+    login = {"username": "employee", "password": "demo-employee-test"}
+    response = client.post("/api/auth/login", json=login)
+    assert response.status_code == 200
+    assert response.get_json()["role"] == "employee"
+
+    profile = client.get("/api/auth/me")
+    assert profile.status_code == 200
+    assert profile.get_json()["employee_id"] is not None
 
 
 def test_seed_generates_password_when_unset(app, monkeypatch):
