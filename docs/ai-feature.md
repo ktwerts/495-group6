@@ -36,8 +36,20 @@ Using synthetic data is a known limitation; see TD-3 in [technical-debt.md](tech
 
 ## Features
 
-_TODO: list each feature in `app/forecasting/features.py` and why it should help (pattern
-recognition)._
+`build_features()` in `app/forecasting/features.py` turns one day into 7 numbers. Each one
+targets a pattern in staffing demand:
+
+| Feature | Pattern it captures |
+|---------|---------------------|
+| `day_of_week` (0 = Mon) | Weekly rhythm |
+| `is_friday` | Friday rush |
+| `is_weekend` | Saturday and Sunday peaks |
+| `month` | Month-level changes |
+| `season_sin`, `season_cos` | Time of year as a point on a circle, so Dec 31 and Jan 1 sit next to each other instead of 365 apart |
+| `workload_units` | How busy the day is, the strongest single signal for staff needed |
+
+`history_to_xy()` converts `staffing_history` rows into the feature matrix `X` and the target
+`y` (`staff_needed`) that scikit-learn expects.
 
 ## Model and evaluation (proposal risk 1: prediction accuracy)
 
