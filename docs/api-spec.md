@@ -58,7 +58,7 @@ on the same day. A successful request returns `201 Created` with the
 recorded slot. Invalid input returns `400`, an unknown employee returns
 `404`, and an exact duplicate slot returns `409`.
 
-**Proposed response for `GET /api/employees`**
+**Response for `GET /api/employees`**
 
 A successful request returns `200 OK` and a JSON array of active employees.
 If there are no active employees, it returns `[]`. A caller who is signed out
