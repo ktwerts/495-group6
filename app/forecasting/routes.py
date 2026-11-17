@@ -24,7 +24,8 @@ def forecast_page():
 def forecast():
     start_arg = request.args.get("start")
     start = parse_date(start_arg, "start") if start_arg else date.today()
-    days = parse_int(request.args.get("days", 7), "days", minimum=1, maximum=31)
+    max_days = current_app.config["FORECAST_MAX_DAYS"]
+    days = parse_int(request.args.get("days", 7), "days", minimum=1, maximum=max_days)
     return jsonify(service.forecast(start, days))
 
 
