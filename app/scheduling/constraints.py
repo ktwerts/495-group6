@@ -6,10 +6,22 @@ These functions validate employee assignments without
 accessing the database or Flask.
 """
 
+from datetime import date, datetime
+
+
+def parse_time(value: str):
+    """Convert a time string into a time object for accurate comparisons."""
+    return datetime.strptime(value, "%H:%M").time()
+
 
 def times_overlap(a_start: str, a_end: str, b_start: str, b_end: str) -> bool:
     """Check whether two shifts overlap on the same day."""
-    return a_start < b_end and b_start < a_end
+    a_start_time = parse_time(a_start)
+    a_end_time = parse_time(a_end)
+    b_start_time = parse_time(b_start)
+    b_end_time = parse_time(b_end)
+
+    return a_start_time < b_end_time and b_start_time < a_end_time
 
 
 def check_assignment(employee: dict, shift: dict, **context) -> list[str]:
@@ -33,7 +45,7 @@ def check_assignment(employee: dict, shift: dict, **context) -> list[str]:
     end = shift["end_time"]
 
     # Check that shift times are valid.
-    if start >= end:
+    if parse_time(start) >= parse_time(end):
         violations.append("Shift end time must be after start time.")
         return violations
 
@@ -56,14 +68,12 @@ def check_assignment(employee: dict, shift: dict, **context) -> list[str]:
     if not availability:
         violations.append("Employee availability is not available.")
     else:
-        from datetime import date
-
         weekday = date.fromisoformat(shift_date).weekday()
 
         available = any(
             slot.get("day_of_week") == weekday
-            and slot["start_time"] <= start
-            and slot["end_time"] >= end
+            and parse_time(slot["start_time"]) <= parse_time(start)
+            and parse_time(slot["end_time"]) >= parse_time(end)
             for slot in availability
         )
 

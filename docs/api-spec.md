@@ -106,10 +106,59 @@ qualification strings are matched.
 
 | Method | Path | Role | Body / query | Returns | Status |
 |--------|------|------|--------------|---------|--------|
-| GET | `/api/shifts` | M | — | list of shifts | Stub (501) |
-| _TODO_ | | | | | |
+| GET | `/api/shifts` | M | — | List of shifts | Implemented (200) |
+| POST | `/api/shifts` | M | `{date, start_time, end_time, required_qualification}` | Created open shift | Implemented (201) |
 
-_TODO: define the shift object, and list the constraint violation messages the API can return._
+### Shift object
+
+Example response:
+
+```json
+{
+  "id": 1,
+  "date": "2026-11-17",
+  "start_time": "09:00",
+  "end_time": "17:00",
+  "required_qualification": "Cashier",
+  "employee_id": null,
+  "status": "open"
+}
+```
+
+### Creating a shift
+
+Managers can create a shift by sending a JSON object to
+`POST /api/shifts`.
+
+Required fields:
+- `date`: Date in YYYY-MM-DD format.
+- `start_time`: Start time in 24-hour format.
+- `end_time`: End time in 24-hour format.
+- `required_qualification`: Qualification required for the shift.
+
+The API validates the required fields and ensures the end time
+comes after the start time.
+
+Successful creation returns HTTP 201 with the new shift.
+New shifts are initially open and have no assigned employee.
+
+### Error responses
+
+- 400: Missing fields, invalid dates or times, or invalid JSON.
+- 401: User is not logged in.
+- 403: User does not have manager permissions.
+
+### Scheduling constraints
+
+Assignment validation checks:
+- Employee is active.
+- Employee has the required qualification.
+- Employee is available for the entire shift.
+- Employee does not have an overlapping shift.
+- Employee has no reported absence on the shift date.
+
+The assignment and replacement recommendation features
+are not yet fully implemented.
 
 ## Forecasting (Integration Lead)
 

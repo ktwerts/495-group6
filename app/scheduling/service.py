@@ -105,8 +105,8 @@ def create_shift(data: dict) -> dict:
         """,
         (
             data["date"],
-            data["start_time"],
-            data["end_time"],
+            start.strftime("%H:%M"),
+            end.strftime("%H:%M"),
             data["required_qualification"].strip(),
         ),
     )
@@ -139,7 +139,7 @@ def count_scheduled_staff(on_date: str) -> int:
         FROM shifts
         WHERE date = ?
           AND employee_id IS NOT NULL
-          AND status = 'scheduled'
+          AND status = 'assigned'
         """,
         (on_date,),
     ).fetchone()

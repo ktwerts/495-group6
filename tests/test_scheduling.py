@@ -1,6 +1,5 @@
 """Scheduling module tests. Owner: Lead Architect.
 
-These are templates: remove the skip marker as you implement each feature.
 The constraint functions are pure, so test them directly without the database.
 """
 
@@ -51,11 +50,62 @@ def test_create_shift_rejects_end_before_start():
         create_shift(shift)
 
 
+def test_create_shift_normalizes_single_digit_hour(app):
+    """Store single-digit hours in HH:MM format."""
+    from app.scheduling.service import create_shift
+
+    with app.app_context():
+        shift = create_shift(
+            {
+                "date": "2026-11-17",
+                "start_time": "9:00",
+                "end_time": "17:00",
+                "required_qualification": "Cashier",
+            }
+        )
+
+    assert shift["start_time"] == "09:00"
+    assert shift["end_time"] == "17:00"
+    assert shift["status"] == "open"
+
+
+def test_count_scheduled_staff_counts_assigned_employees(app):
+    """Count distinct assigned employees, excluding open and cancelled shifts."""
+    from app.db import get_db
+    from app.scheduling.service import count_scheduled_staff
+
+    with app.app_context():
+        db = get_db()
+
+        db.executemany(
+            """
+            INSERT INTO shifts
+            (date, start_time, end_time, required_qualification, employee_id, status)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            [
+                ("2026-11-17", "09:00", "12:00", "Cashier", 1, "assigned"),
+                ("2026-11-17", "13:00", "17:00", "Cashier", 1, "assigned"),
+                ("2026-11-17", "09:00", "12:00", "Cashier", 2, "assigned"),
+                ("2026-11-17", "09:00", "12:00", "Cashier", None, "open"),
+                ("2026-11-17", "09:00", "12:00", "Cashier", 3, "cancelled"),
+            ],
+        )
+        db.commit()
+
+        assert count_scheduled_staff("2026-11-17") == 2
+
+
+def test_single_digit_time_overlap():
+    """A single-digit start hour should not bypass overlap detection."""
+    assert constraints.times_overlap("9:00", "9:30", "09:15", "09:45")
+
+
 @TODO
 def test_conflicting_assignment_returns_409(manager):
-    """Assign the same employee to two overlapping shifts and expect 409 with violations."""
+    """Assign the same employee to overlapping shifts and expect 409."""
 
 
 @TODO
 def test_absence_opens_shift_and_recommendations_exclude_absent(manager):
-    """Integration: report absence -> shift is open -> absent employee isn't recommended."""
+    """Report absence, reopen shift, and exclude absent employee."""
