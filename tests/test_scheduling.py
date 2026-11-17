@@ -11,20 +11,58 @@ from app.scheduling import constraints
 TODO = pytest.mark.skip(reason="TODO: implement scheduling module")
 
 
-@TODO
+
 def test_times_overlap():
     assert constraints.times_overlap("09:00", "12:00", "11:00", "13:00")
     assert not constraints.times_overlap("09:00", "12:00", "12:00", "15:00")
 
 
-@TODO
+
 def test_check_assignment_detects_missing_qualification():
-    """check_assignment() should return a violation when the qualification is missing."""
+    """Check that an employee has the required qualification."""
 
+    employee = {
+        "active": True,
+        "qualifications": ["Cashier"]
+    }
 
-@TODO
-def test_create_shift_rejects_end_before_start(manager):
-    """POST a shift whose end is before its start and expect 400."""
+    shift = {
+        "date": "2026-11-17",
+        "start_time": "09:00",
+        "end_time": "17:00",
+        "required_qualification": "Manager"
+    }
+
+    availability = [
+        {
+            "day_of_week": 1,
+            "start_time": "08:00",
+            "end_time": "18:00"
+        }
+    ]
+
+    violations = constraints.check_assignment(
+        employee,
+        shift,
+        availability=availability
+    )
+
+    assert "Employee does not have the required qualification." in violations
+
+def test_create_shift_rejects_end_before_start():
+    """Reject shifts that end before they start."""
+    from app.scheduling.service import create_shift
+    from app.errors import ValidationError
+
+    shift = {
+        "date": "2026-11-17",
+        "start_time": "17:00",
+        "end_time": "09:00",
+        "required_qualification": "Cashier"
+    }
+
+    with pytest.raises(ValidationError):
+        create_shift(shift)
 
 
 @TODO

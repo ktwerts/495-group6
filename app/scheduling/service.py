@@ -16,22 +16,149 @@ Tips:
 from app.db import get_db  # noqa: F401  (you'll need this)
 
 
+
 def list_shifts(start: str | None = None, end: str | None = None) -> list[dict]:
-    """Return shifts (optionally within a date range), including the assigned employee's name."""
-    raise NotImplementedError("scheduling.list_shifts")
+    """Return scheduled shifts, optionally filtered by date."""
+
+    from datetime import date
+    from app.errors import ValidationError
+
+    # Validate optional date filters.
+    for value in (start, end):
+        if value is not None:
+            try:
+                date.fromisoformat(value)
+            except (TypeError, ValueError):
+                raise ValidationError(
+                    "Dates must use YYYY-MM-DD format."
+                )
+
+    if start and end and start > end:
+        raise ValidationError(
+            "Start date cannot be after end date."
+        )
+
+    db = get_db()
+
+    query = """
+        SELECT id, date, start_time, end_time,
+               required_qualification, employee_id, status
+        FROM shifts
+        WHERE 1 = 1
+    """
+    parameters = []
+
+    if start:
+        query += " AND date >= ?"
+        parameters.append(start)
+
+    if end:
+        query += " AND date <= ?"
+        parameters.append(end)
+
+    query += " ORDER BY date, start_time, id"
+
+    rows = db.execute(query, parameters).fetchall()
+
+    return [dict(row) for row in rows]
+
 
 
 def create_shift(data: dict) -> dict:
-    """Validate and create a shift; if an employee is given, check constraints first."""
-    raise NotImplementedError("scheduling.create_shift")
+    """Create an open shift without an assigned employee."""
+    from datetime import date, datetime
+    from app.errors import ValidationError
+
+    if not isinstance(data, dict):
+        raise ValidationError("Shift data must be an object.")
+
+    required_fields = [
+        "date",
+        "start_time",
+        "end_time",
+        "required_qualification",
+    ]
+
+    for field in required_fields:
+        if not isinstance(data.get(field), str) or not data[field].strip():
+            raise ValidationError(f"{field} is required.")
+
+    try:
+        shift_date = date.fromisoformat(data["date"])
+        if shift_date.isoformat() != data["date"]:
+            raise ValueError()
+    except ValueError:
+        raise ValidationError("Date must use YYYY-MM-DD format.")
+
+    try:
+        start = datetime.strptime(data["start_time"], "%H:%M")
+        end = datetime.strptime(data["end_time"], "%H:%M")
+    except ValueError:
+        raise ValidationError("Times must use HH:MM format.")
+
+    if start >= end:
+        raise ValidationError("End time must be after start time.")
+
+    if data.get("employee_id") is not None:
+        raise ValidationError(
+            "Employee assignments are not implemented yet."
+        )
+
+    db = get_db()
+
+    cursor = db.execute(
+        """
+        INSERT INTO shifts
+        (date, start_time, end_time,
+         required_qualification, employee_id, status)
+        VALUES (?, ?, ?, ?, NULL, 'open')
+        """,
+        (
+            data["date"],
+            data["start_time"],
+            data["end_time"],
+            data["required_qualification"].strip(),
+        ),
+    )
+
+    db.commit()
+
+    row = db.execute(
+        "SELECT * FROM shifts WHERE id = ?",
+        (cursor.lastrowid,),
+    ).fetchone()
+
+    return dict(row)
+
+
 
 
 def count_scheduled_staff(on_date: str) -> int:
-    """How many employees are scheduled on a date (YYYY-MM-DD).
+    """Count distinct employees assigned to shifts on a date."""
+    from datetime import date
+    from app.errors import ValidationError
 
-    Integration point: the forecasting module uses this to compute staffing gaps.
-    """
-    raise NotImplementedError("scheduling.count_scheduled_staff")
+    try:
+        parsed_date = date.fromisoformat(on_date)
+        if parsed_date.isoformat() != on_date:
+            raise ValueError()
+    except (TypeError, ValueError):
+        raise ValidationError("Date must use YYYY-MM-DD format.")
+
+    db = get_db()
+
+    row = db.execute(
+        """
+        SELECT COUNT(DISTINCT employee_id) AS total
+        FROM shifts
+        WHERE date = ?
+          AND employee_id IS NOT NULL
+          AND status = 'scheduled'
+        """,
+        (on_date,),
+    ).fetchone()
+
+    return int(row["total"])
 
 
 def recommend_replacements(shift_id: int, limit: int = 3) -> list[dict]:
