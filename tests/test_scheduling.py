@@ -51,8 +51,8 @@ def test_check_assignment_detects_missing_qualification():
 
 def test_create_shift_rejects_end_before_start():
     """Reject shifts that end before they start."""
-    from app.scheduling.service import create_shift
     from app.errors import ValidationError
+    from app.scheduling.service import create_shift
 
     shift = {
         "date": "2026-11-17",
