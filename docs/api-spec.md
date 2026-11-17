@@ -38,12 +38,26 @@ endpoint change, so teammates can code against it.
 
 ## Employees (Interface Designer)
 
+To create an employee, send `name` and `position` as nonblank strings.
+Leading and trailing whitespace is trimmed. Each field must be at most 100 characters after trimming. A successful request returns
+`201 Created` with `id`, `name`, `position`, `active` (integer `1`),
+`max_weekly_hours` (number, defaults to `40`), and empty `qualifications`
+and `availability` arrays. Invalid input returns `400`. A signed-out
+caller receives `401`, and a signed-in employee receives `403`.
+
 | Method | Path | Role | Body / query | Returns | Status |
 |--------|------|------|--------------|---------|--------|
-| GET | `/api/employees` | M | — | list of employees | Stub (501) |
-| _TODO_ | | | | | |
+| GET | `/api/employees` | M | — | List of active employees (200) | Implemented |
+| POST | `/api/employees` | M | JSON with `name` and `position` | Created employee (201) | Implemented |
+| POST | `/api/employees/{employee_id}/availability` | M | JSON with `day_of_week`, `start_time`, and `end_time` | Recorded slot (201) | Implemented |
 
-**Proposed response for `GET /api/employees`**
+To record a weekly availability slot, send `day_of_week` as an integer
+from `0` (Monday) to `6` (Sunday), with `start_time` and `end_time` in
+24-hour `HH:MM` format. The end time must be later than the start time
+on the same day. A successful request returns `201 Created` with the
+recorded slot. Invalid input returns `400`, an unknown employee returns `404`, and a slot that overlaps an existing slot for the same employee and weekday returns `409`. Back-to-back slots are allowed.
+
+**Response for `GET /api/employees`**
 
 A successful request returns `200 OK` and a JSON array of active employees.
 If there are no active employees, it returns `[]`. A caller who is signed out

@@ -82,9 +82,13 @@ Module: **Forecasting / AI** (`app/forecasting/`) + integration
 
 ## Alpha demo script (fill in once features land)
 
-1. `flask --app run seed`, then `python run.py`, then log in as `manager`
+1. Run `python -m flask --app run seed` against a fresh demo database, then
+   `python run.py`. Sign in as `manager`. Use the generated manager password
+   from the seed output or the value set in `SHIFTWISE_ADMIN_PASSWORD`.
 2. Forecast page: _TODO_
 3. Schedule page: report an absence, find cover, approve: _TODO_
 4. Show a blocked conflicting assignment (409): _TODO_
-5. Log in as an employee: _TODO_
+5. Sign out, then sign in as `employee`. Use the generated employee password
+   from the seed output or the value set in `SHIFTWISE_EMPLOYEE_PASSWORD`.
+   Verify that the home page shows **My Shifts** and the **employee** role.
 6. GitHub Actions: all jobs green, plus the test report artifact
