@@ -100,12 +100,34 @@ causing a crash at prediction time.
 
 ## Integration with the rest of the system
 
-_TODO: how forecasting uses `scheduling.count_scheduled_staff()`, how results reach the UI,
-and how a manager stays in control._
+`app/forecasting/service.py` connects the model to the rest of the app:
+
+1. **History → model:** `train_model()` loads `staffing_history`, trains a
+   `StaffingForecaster`, and saves it to `instance/staffing_model.joblib` along with the
+   history's row count and latest date.
+2. **Reuse vs. retrain:** `get_forecaster()` keeps the model in memory and reloads it from disk
+   after a restart. It retrains only when the history has changed or the saved file can't be
+   read.
+3. **Model → schedule:** `forecast()` gets scheduled counts for the whole range in one call to
+   `scheduling.count_scheduled_staff_between()`, compares each day with the prediction, and
+   reports the gap. This is the integration point with the Scheduling module. Until the range
+   function exists it calls `count_scheduled_staff()` once per day, and until neither exists,
+   `scheduled_staff` and `gap` are `null` instead of the whole forecast failing.
+4. **Manager in control:** the forecast only reports gaps. Nothing changes the schedule
+   automatically, and both endpoints are manager-only.
+
+_TODO (forecast page PR): how results reach the UI._
 
 ## How to try it
 
-_TODO: commands or clicks to demo it._
+```bash
+flask --app run seed
+python run.py
+```
+
+Log in as `manager`. While the page is in progress, open
+`http://127.0.0.1:5000/api/forecast?days=7` in the same browser, or send
+`POST /api/forecast/train` to retrain and see the metrics.
 
 ## Limitations and next steps
 

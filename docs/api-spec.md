@@ -115,10 +115,39 @@ _TODO: define the shift object, and list the constraint violation messages the A
 
 | Method | Path | Role | Body / query | Returns | Status |
 |--------|------|------|--------------|---------|--------|
-| GET | `/api/forecast?start=YYYY-MM-DD&days=7` | M | `days` 1–31; `start` defaults to today | forecast | Stub (501) |
-| _TODO_ | | | | | |
+| GET | `/api/forecast?start=YYYY-MM-DD&days=7` | M | `days` 1–31 (default 7, max set by `FORECAST_MAX_DAYS`); `start` defaults to today | Forecast (200) | Implemented |
+| POST | `/api/forecast/train` | M | — | Model metrics (200) | Implemented |
 
-_TODO: define the forecast response (per-day predicted vs. scheduled, model metrics)._
+`GET /api/forecast` trains a model automatically the first time, and again whenever the
+staffing history changes. Otherwise it reuses the saved model.
+
+```json
+{
+  "method": "random_forest",
+  "metrics": {
+    "method": "random_forest", "history_days": 180, "test_days": 36, "test_from": "2026-10-11",
+    "mae": 0.518, "baseline_mae": 0.664, "beats_baseline": true
+  },
+  "days": [
+    {
+      "date": "2026-12-07", "expected_workload": 58.4,
+      "predicted_staff_needed": 4, "scheduled_staff": 2, "gap": 2
+    }
+  ]
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `method` | `random_forest`, or `weekday_average` with under 28 days of history (`SHIFTWISE_FORECAST_MIN_HISTORY`) |
+| `metrics` | Same object `POST /api/forecast/train` returns. The fallback includes only `method` and `history_days` |
+| `expected_workload` | Average historical workload for that weekday |
+| `predicted_staff_needed` | Whole number of staff, minimum 1, rounded up |
+| `scheduled_staff` | Distinct employees scheduled that day, from `count_scheduled_staff()`; `null` until scheduling can report counts |
+| `gap` | `predicted_staff_needed - scheduled_staff`; positive means understaffed; `null` when `scheduled_staff` is |
+
+Errors: `400` for no staffing history (run `flask seed`), invalid history data, or a bad
+`days`/`start` value. Signed-out callers get `401`, and employees get `403`.
 
 ## Other
 
