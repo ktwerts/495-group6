@@ -2,14 +2,14 @@
 
 _Owner: Integration Lead_
 
-> Outline: answer each section as you build. Graders look for a working model, an honest
-> evaluation, and a clear integration with the rest of the system.
-
 ## What it does
 
-_TODO: one paragraph. From the proposal, it predicts staffing requirements from historical
-attendance, workload patterns and scheduled shifts, and supports replacement recommendations
-when absences occur._
+The forecast predicts how many staff each upcoming day needs, using past workload and
+staffing, and compares that with how many people are actually scheduled. A manager opens the
+Forecast page, sees which days are short and by how many, and can fix the schedule before the
+day arrives instead of reacting to a callout. The prediction comes from a scikit-learn random
+forest trained on daily history, and every training run is scored against a simple
+weekday-average baseline so the team can tell whether the model is actually adding value.
 
 ## Data
 
@@ -133,4 +133,15 @@ Log in as `manager` and open **Forecast**. Pick a start date and 7, 14 or 31 day
 
 ## Limitations and next steps
 
-_TODO: also add these to [technical-debt.md](technical-debt.md)._
+| Limitation | Effect | Next step | Debt |
+|------------|--------|-----------|------|
+| Training data is synthetic | Accuracy numbers show the pipeline works, not real-world accuracy | Import real attendance and workload data | TD-3 |
+| One headcount per day | Doesn't say which shift or position is short | Add shift and position to the history and predict per shift | TD-8 |
+| Future workload is a weekday average | A known busy day (holiday, event) is predicted like any other | Let managers enter expected workload for specific days | — |
+| Model saved with pickle | A tampered file could run code | Sign the file or store only model parameters | TD-6 |
+| Retrain check uses row count and latest date | Editing an old row doesn't trigger a retrain | Track when history was last updated | TD-7 |
+| Duplicate dates passed directly to `train()` count twice | Skews averages for callers outside the database | Reject duplicates in `train()` | TD-5 |
+| Scheduling gaps are reported, not filled | A manager still has to find cover themselves | Link a short day to Scheduling's replacement recommendations | — |
+
+The end-to-end tests in `tests/test_integration.py` start from `flask seed` and cover training,
+the forecast, access control, and the call into Scheduling for each day.
