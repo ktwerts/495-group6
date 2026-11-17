@@ -17,6 +17,12 @@ WORKLOAD_PER_STAFF = 15.0
 STAFFING_NOISE = 0.5
 MEAN_ABSENCES = 0.8
 
+INSERT = (
+    "INSERT INTO staffing_history (record_date, workload_units, staff_needed, absences)"
+    " VALUES (:record_date, :workload_units, :staff_needed, :absences)"
+)
+INSERT_SKIP_EXISTING = INSERT + " ON CONFLICT (record_date) DO NOTHING"
+
 
 def generate_sample_history(
     days: int = DEFAULT_DAYS, end: date | None = None, seed: int = 42
@@ -51,15 +57,17 @@ def generate_sample_history(
     return rows
 
 
-def save_history(rows: list[dict]) -> int:
+def save_history(rows: list[dict], skip_existing: bool = False) -> int:
+    """Insert rows and return how many were added.
+
+    By default a date that's already stored raises IntegrityError. With
+    skip_existing=True those dates are left as they are and only new ones are added.
+    """
     db = get_db()
+    before = db.total_changes
     with db:
-        db.executemany(
-            "INSERT INTO staffing_history (record_date, workload_units, staff_needed, absences)"
-            " VALUES (:record_date, :workload_units, :staff_needed, :absences)",
-            rows,
-        )
-    return len(rows)
+        db.executemany(INSERT_SKIP_EXISTING if skip_existing else INSERT, rows)
+    return db.total_changes - before
 
 
 def load_history() -> list[dict]:
@@ -71,4 +79,4 @@ def load_history() -> list[dict]:
 
 
 def seed_staffing_history(days: int = DEFAULT_DAYS) -> int:
-    return save_history(generate_sample_history(days))
+    return save_history(generate_sample_history(days), skip_existing=True)

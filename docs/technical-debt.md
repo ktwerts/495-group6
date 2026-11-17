@@ -22,6 +22,7 @@ untested paths, simplified data models, and synthetic training data.
 
 | ID | Area | Original shortcut | Interest that was accruing | How it was mitigated | PR |
 |----|------|-------------------|----------------------------|----------------------|----|
+| TD-4 | forecasting | `seed_staffing_history()` assumed an empty table; a date already stored made the whole insert fail (found in peer review) | Re-seeding, or adding demo history to a database that already had some, would crash instead of filling the gaps | `save_history(skip_existing=True)` skips dates already stored and still rejects invalid values; seeding is now safe to run repeatedly. Covered by 5 new tests | staffing-history-table |
 | | | | | | |
 
 ## How to add an entry

@@ -10,6 +10,7 @@ from app.forecasting.history import (
     generate_sample_history,
     load_history,
     save_history,
+    seed_staffing_history,
 )
 
 END = date(2026, 6, 30)
@@ -81,6 +82,47 @@ def test_duplicate_date_rolls_back_whole_batch(app):
         with pytest.raises(sqlite3.IntegrityError):
             save_history([row("2026-01-06"), row("2026-01-05")])
         assert [r["record_date"] for r in load_history()] == ["2026-01-05"]
+
+
+def test_skip_existing_only_adds_new_dates(app):
+    with app.app_context():
+        save_history([row("2026-01-05", staff=9)])
+        added = save_history([row("2026-01-05", staff=2), row("2026-01-06")], skip_existing=True)
+        assert added == 1
+        assert [(r["record_date"], r["staff_needed"]) for r in load_history()] == [
+            ("2026-01-05", 9),
+            ("2026-01-06", 4),
+        ]
+
+
+def test_skip_existing_still_rejects_invalid_values(app):
+    with app.app_context(), pytest.raises(sqlite3.IntegrityError):
+        save_history([row(staff=0)], skip_existing=True)
+
+
+def test_seeding_twice_does_not_fail_or_duplicate(app):
+    with app.app_context():
+        assert seed_staffing_history() == DEFAULT_DAYS
+        assert seed_staffing_history() == 0
+        assert len(load_history()) == DEFAULT_DAYS
+
+
+def test_seeding_fills_in_missing_days(app):
+    yesterday = (date.today() - timedelta(days=1)).isoformat()
+    with app.app_context():
+        save_history([row(yesterday, staff=7)])
+        assert seed_staffing_history() == DEFAULT_DAYS - 1
+        history = load_history()
+        assert len(history) == DEFAULT_DAYS
+        assert history[-1]["staff_needed"] == 7
+
+
+def test_flask_seed_can_run_twice(app, monkeypatch):
+    monkeypatch.setenv("SHIFTWISE_ADMIN_PASSWORD", "demo-password-1")
+    runner = app.test_cli_runner()
+    assert runner.invoke(args=["seed"]).exit_code == 0
+    second = runner.invoke(args=["seed"])
+    assert second.exit_code == 0, second.output
 
 
 def test_flask_seed_loads_history(app, monkeypatch):
