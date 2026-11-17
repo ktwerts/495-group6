@@ -30,6 +30,7 @@ def create_shift():
 
     if not isinstance(data, dict):
         from app.errors import ValidationError
+
         raise ValidationError("A JSON object is required.")
 
     shift = service.create_shift(data)

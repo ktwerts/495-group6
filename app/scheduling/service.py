@@ -1,4 +1,3 @@
-
 """Shifts, absences and replacement recommendations.
 
 Owner: Lead Architect
@@ -29,14 +28,10 @@ def list_shifts(start: str | None = None, end: str | None = None) -> list[dict]:
             try:
                 date.fromisoformat(value)
             except (TypeError, ValueError):
-                raise ValidationError(
-                    "Dates must use YYYY-MM-DD format."
-                ) from None
+                raise ValidationError("Dates must use YYYY-MM-DD format.") from None
 
     if start and end and start > end:
-        raise ValidationError(
-            "Start date cannot be after end date."
-        )
+        raise ValidationError("Start date cannot be after end date.")
 
     db = get_db()
 
@@ -85,25 +80,19 @@ def create_shift(data: dict) -> dict:
         if shift_date.isoformat() != data["date"]:
             raise ValueError()
     except ValueError:
-        raise ValidationError(
-            "Date must use YYYY-MM-DD format."
-        ) from None
+        raise ValidationError("Date must use YYYY-MM-DD format.") from None
 
     try:
         start = datetime.strptime(data["start_time"], "%H:%M")
         end = datetime.strptime(data["end_time"], "%H:%M")
     except ValueError:
-        raise ValidationError(
-            "Times must use HH:MM format."
-        ) from None
+        raise ValidationError("Times must use HH:MM format.") from None
 
     if start >= end:
         raise ValidationError("End time must be after start time.")
 
     if data.get("employee_id") is not None:
-        raise ValidationError(
-            "Employee assignments are not implemented yet."
-        )
+        raise ValidationError("Employee assignments are not implemented yet.")
 
     db = get_db()
 
@@ -140,9 +129,7 @@ def count_scheduled_staff(on_date: str) -> int:
         if parsed_date.isoformat() != on_date:
             raise ValueError()
     except (TypeError, ValueError):
-        raise ValidationError(
-            "Date must use YYYY-MM-DD format."
-        ) from None
+        raise ValidationError("Date must use YYYY-MM-DD format.") from None
 
     db = get_db()
 
