@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import date, timedelta
 
 import joblib
@@ -182,3 +183,24 @@ def test_unreadable_model_file_is_replaced(app, manager, history, scheduled, con
     res = manager.get("/api/forecast?days=1")
     assert res.status_code == 200
     assert res.get_json()["method"] == "random_forest"
+
+
+def test_forecast_page_has_controls(manager):
+    html = manager.get("/forecast").get_data(as_text=True)
+    for element_id in ("forecast-form", "retrain-btn", "model-summary", "forecast-table"):
+        assert f'id="{element_id}"' in html
+
+
+@pytest.mark.parametrize(
+    ("max_days", "options"), [(31, ["7", "14", "31"]), (10, ["7", "10"]), (5, ["5"])]
+)
+def test_forecast_page_day_options_follow_max_days(app, manager, max_days, options):
+    app.config["FORECAST_MAX_DAYS"] = max_days
+    html = manager.get("/forecast").get_data(as_text=True)
+    assert re.findall(r'<option value="(\d+)">', html) == options
+
+
+def test_forecast_page_is_manager_only(client, staff):
+    assert staff.get("/forecast").status_code == 403
+    staff.post("/api/auth/logout")
+    assert client.get("/forecast").status_code == 302

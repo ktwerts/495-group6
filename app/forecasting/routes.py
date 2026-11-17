@@ -14,7 +14,9 @@ bp = Blueprint("forecasting", __name__)
 @bp.get("/forecast")
 @role_required("manager")
 def forecast_page():
-    return render_template("forecast.html")
+    max_days = current_app.config["FORECAST_MAX_DAYS"]
+    day_options = [n for n in (7, 14) if n < max_days] + [max_days]
+    return render_template("forecast.html", day_options=day_options)
 
 
 @bp.get("/api/forecast")

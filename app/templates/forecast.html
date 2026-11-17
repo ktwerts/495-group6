@@ -2,21 +2,143 @@
 {% block title %}Forecast · ShiftWise AI{% endblock %}
 {% block content %}
 <h1>Staffing forecast</h1>
-<p class="muted">Owner: Integration Lead</p>
+<p class="lead">Predicted staff needed per day, compared with who is scheduled.</p>
 
-{#
-  TODO:
-  - Table of predicted staff needed vs. scheduled per day, from /api/forecast?days=7
-  - Highlight understaffed days; show model accuracy vs. a baseline
-  - Button to retrain the model
-  Use the helpers in static/js/app.js (api, esc, formData, showMessage, showError).
-#}
-<div id="forecast"></div>
+<form id="forecast-form" class="form inline">
+  <label>Start <input id="forecast-start" name="start" type="date" required></label>
+  <label>Days
+    <select id="forecast-days" name="days">
+      {% for n in day_options %}<option value="{{ n }}">{{ n }}</option>{% endfor %}
+    </select>
+  </label>
+  <button id="show-btn" class="btn" type="submit">Show forecast</button>
+  <button id="retrain-btn" class="btn secondary" type="button">Retrain model</button>
+</form>
+
+<section id="model-summary" class="stats" hidden>
+  <div class="stat"><span class="muted">Method</span><strong id="stat-method"></strong></div>
+  <div class="stat"><span class="muted">History</span><strong id="stat-history"></strong></div>
+  <div class="stat"><span class="muted">Model error (MAE)</span><strong id="stat-mae"></strong></div>
+  <div class="stat"><span class="muted">Baseline error</span><strong id="stat-baseline"></strong></div>
+  <div class="stat"><span class="muted">Beats baseline</span><strong id="stat-beats"></strong></div>
+</section>
+
+<p id="forecast-status" role="status">Loading forecast…</p>
+<table id="forecast-table" hidden>
+  <thead>
+    <tr>
+      <th scope="col">Date</th>
+      <th scope="col">Expected workload</th>
+      <th scope="col">Predicted staff</th>
+      <th scope="col">Scheduled</th>
+      <th scope="col">Status</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
 {% endblock %}
 {% block scripts %}
 <script>
-  api('/api/forecast?days=7')
-    .then(data => { document.getElementById('forecast').textContent = JSON.stringify(data); })
-    .catch(showError);
+const forecastForm = document.getElementById('forecast-form');
+const startInput = document.getElementById('forecast-start');
+const daysInput = document.getElementById('forecast-days');
+const showButton = document.getElementById('show-btn');
+const retrainButton = document.getElementById('retrain-btn');
+const forecastStatus = document.getElementById('forecast-status');
+const forecastTable = document.getElementById('forecast-table');
+const summary = document.getElementById('model-summary');
+
+const weekday = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+
+function setStat(id, text, className = '') {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = className;
+}
+
+function renderMetrics(metrics) {
+  const forest = metrics.method === 'random_forest';
+  setStat('stat-method', forest ? 'Random forest' : 'Weekday average');
+  setStat('stat-history', `${metrics.history_days} days`);
+  setStat('stat-mae', forest ? `${metrics.mae.toFixed(2)} staff/day` : '—');
+  setStat('stat-baseline', forest ? `${metrics.baseline_mae.toFixed(2)} staff/day` : '—');
+  if (forest) {
+    setStat('stat-beats', metrics.beats_baseline ? 'Yes' : 'No', metrics.beats_baseline ? 'good' : 'bad');
+  } else {
+    setStat('stat-beats', 'Not enough history', 'muted');
+  }
+  summary.hidden = false;
+}
+
+function gapStatus(gap) {
+  if (gap === null) return { text: '—', className: 'muted' };
+  if (gap > 0) return { text: `Short by ${gap}`, className: 'bad' };
+  if (gap < 0) return { text: `${-gap} extra`, className: 'muted' };
+  return { text: 'Covered', className: 'good' };
+}
+
+function renderDays(days) {
+  const body = forecastTable.tBodies[0];
+  body.replaceChildren();
+  for (const day of days) {
+    const row = body.insertRow();
+    row.insertCell().textContent = weekday.format(new Date(`${day.date}T00:00`));
+    row.insertCell().textContent = day.expected_workload.toFixed(1);
+    row.insertCell().textContent = day.predicted_staff_needed;
+    row.insertCell().textContent = day.scheduled_staff ?? '—';
+    const status = gapStatus(day.gap);
+    const cell = row.insertCell();
+    cell.textContent = status.text;
+    cell.className = status.className;
+  }
+
+  const short = days.filter(day => day.gap > 0).length;
+  if (days.every(day => day.gap === null)) {
+    forecastStatus.textContent = 'Scheduled counts are not available yet, so only predictions are shown.';
+  } else {
+    forecastStatus.textContent = short ? `${short} of ${days.length} days are understaffed.` : 'Every day is covered.';
+  }
+  forecastTable.hidden = false;
+}
+
+async function loadForecast() {
+  const query = new URLSearchParams({ start: startInput.value, days: daysInput.value });
+  forecastStatus.textContent = 'Loading forecast…';
+  showButton.disabled = true;
+  try {
+    const data = await api(`/api/forecast?${query}`);
+    renderMetrics(data.metrics);
+    renderDays(data.days);
+  } catch (error) {
+    forecastStatus.textContent = '';
+    forecastTable.hidden = true;
+    summary.hidden = true;
+    showError(error);
+  } finally {
+    showButton.disabled = false;
+  }
+}
+
+forecastForm.addEventListener('submit', event => {
+  event.preventDefault();
+  loadForecast();
+});
+
+retrainButton.addEventListener('click', async () => {
+  retrainButton.disabled = true;
+  try {
+    const metrics = await api('/api/forecast/train', { method: 'POST' });
+    renderMetrics(metrics);
+    showMessage('Model retrained.');
+    await loadForecast();
+  } catch (error) {
+    showError(error);
+  } finally {
+    retrainButton.disabled = false;
+  }
+});
+
+startInput.value = todayISO();
+loadForecast();
 </script>
 {% endblock %}

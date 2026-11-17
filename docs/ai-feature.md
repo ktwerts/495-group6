@@ -116,7 +116,10 @@ causing a crash at prediction time.
 4. **Manager in control:** the forecast only reports gaps. Nothing changes the schedule
    automatically, and both endpoints are manager-only.
 
-_TODO (forecast page PR): how results reach the UI._
+5. **Forecast page:** `/forecast` (manager-only) calls `GET /api/forecast` and shows the
+   model's error next to the baseline's, then one row per day with predicted vs. scheduled
+   staff. Understaffed days are marked "Short by N". **Retrain model** calls
+   `POST /api/forecast/train` and refreshes the table.
 
 ## How to try it
 
@@ -125,9 +128,9 @@ flask --app run seed
 python run.py
 ```
 
-Log in as `manager`. While the page is in progress, open
-`http://127.0.0.1:5000/api/forecast?days=7` in the same browser, or send
-`POST /api/forecast/train` to retrain and see the metrics.
+Log in as `manager` and open **Forecast**. Pick a start date and 7, 14 or 31 days, or press
+**Retrain model** to see fresh metrics. The raw JSON is at
+`http://127.0.0.1:5000/api/forecast?days=7`.
 
 ## Limitations and next steps
 
