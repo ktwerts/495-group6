@@ -29,7 +29,7 @@ flowchart LR
 | auth | `users` | — | `login_required`, `role_required`, `create_user` |
 | employees | _TODO_ | — | _TODO_ |
 | scheduling | _TODO_ | employees | _TODO_ |
-| forecasting | _TODO_ | scheduling | _TODO_ |
+| forecasting | `staffing_history` | scheduling (`count_scheduled_staff`) | None yet; exposes `forecast()` and `train_model()` to its own routes |
 
 Keep dependencies one-directional (forecasting → scheduling → employees) to avoid circular
 imports.

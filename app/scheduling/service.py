@@ -147,6 +147,16 @@ def count_scheduled_staff(on_date: str) -> int:
     return int(row["total"])
 
 
+def count_scheduled_staff_between(start: str, end: str) -> dict[str, int]:
+    """Scheduled staff for every date from start to end (inclusive), in one query.
+
+    Returns {"YYYY-MM-DD": count}; dates with nobody scheduled can be left out (counted as 0).
+    Integration point: forecasting uses this when it exists, and falls back to
+    count_scheduled_staff() once per day until then.
+    """
+    raise NotImplementedError("scheduling.count_scheduled_staff_between")
+
+
 def recommend_replacements(shift_id: int, limit: int = 3) -> list[dict]:
     """Rank employees who could legally cover an open shift (for manager approval)."""
     raise NotImplementedError("scheduling.recommend_replacements")

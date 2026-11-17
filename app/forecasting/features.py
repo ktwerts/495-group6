@@ -1,14 +1,65 @@
-"""Feature engineering: turn historical records into model inputs.
+"""Turns staffing history into model inputs."""
 
-Owner: Integration Lead
-
-Ideas from the proposal: historical attendance, workload patterns, scheduled shifts.
-Start simple (for example day of week, month, weekend flag) and add features as you go.
-"""
-
+import math
 from datetime import date
 
+FEATURE_NAMES = [
+    "day_of_week",
+    "is_friday",
+    "is_weekend",
+    "month",
+    "season_sin",
+    "season_cos",
+    "workload_units",
+]
 
-def build_features(day: date, **inputs) -> list[float]:
-    """Return the numeric feature vector for one day."""
-    raise NotImplementedError("features.build_features")
+
+def check_workload(workload_units) -> float:
+    """Return workload_units as a float, or raise ValueError unless it's a finite number >= 0."""
+    is_number = isinstance(workload_units, int | float) and not isinstance(workload_units, bool)
+    if not is_number or not math.isfinite(workload_units) or workload_units < 0:
+        raise ValueError(f"workload_units must be a finite number >= 0, got {workload_units!r}")
+    return float(workload_units)
+
+
+def build_features(day: date, workload_units: float) -> list[float]:
+    """Return the values for one day, in FEATURE_NAMES order.
+
+    workload_units must be a finite number >= 0.
+    """
+    workload_units = check_workload(workload_units)
+    weekday = day.weekday()
+    # sin/cos keeps Dec 31 and Jan 1 close together instead of 365 apart
+    angle = 2 * math.pi * day.timetuple().tm_yday / 365.25
+    return [
+        float(weekday),
+        1.0 if weekday == 4 else 0.0,
+        1.0 if weekday >= 5 else 0.0,
+        float(day.month),
+        math.sin(angle),
+        math.cos(angle),
+        float(workload_units),
+    ]
+
+
+def history_to_xy(rows) -> tuple[list[list[float]], list[int]]:
+    """Split staffing-history rows into features (X) and staff_needed targets (y).
+
+    Each row needs record_date (YYYY-MM-DD), workload_units and staff_needed,
+    where staff_needed is a whole number >= 1.
+    """
+    features, targets = [], []
+    for row in rows:
+        day = date.fromisoformat(row["record_date"])
+        features.append(build_features(day, row["workload_units"]))
+        targets.append(_staff_count(row["staff_needed"], row["record_date"]))
+    return features, targets
+
+
+def _staff_count(value, record_date: str) -> int:
+    whole = isinstance(value, int) or (isinstance(value, float) and value.is_integer())
+    if isinstance(value, bool) or not whole or value < 1:
+        raise ValueError(
+            f"staff_needed on {record_date} must be a whole number >= 1, got {value!r}"
+        )
+    return int(value)

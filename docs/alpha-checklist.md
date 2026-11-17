@@ -41,13 +41,13 @@ Module: **Scheduling** (`app/scheduling/`) + system design
 
 Module: **Forecasting / AI** (`app/forecasting/`) + integration
 
-- [ ] Design the `staffing_history` table; generate sample history in `app/seed.py`
-- [ ] Implement `features.py` and `model.py` (train, evaluate against a baseline, predict, save/load)
-- [ ] Implement `service.py`: compare predictions with `scheduling.count_scheduled_staff()`
-- [ ] Add a retrain endpoint, and build `templates/forecast.html`
-- [ ] Un-skip and complete `tests/test_forecasting.py`, plus the forecast benchmark in `tests/test_performance.py`
-- [ ] Write `docs/ai-feature.md`
-- [ ] Extend the CI smoke test in `.github/workflows/ci.yml` to check the forecast endpoint
+- [x] Design the `staffing_history` table; generate sample history in `app/seed.py`
+- [x] Implement `features.py` and `model.py` (train, evaluate against a baseline, predict, save/load)
+- [x] Implement `service.py`: compare predictions with `scheduling.count_scheduled_staff()`
+- [x] Add a retrain endpoint, and build `templates/forecast.html`
+- [x] Un-skip and complete `tests/test_forecasting.py`, plus the forecast benchmark in `tests/test_performance.py`
+- [x] Write `docs/ai-feature.md`
+- [x] Extend the CI smoke test in `.github/workflows/ci.yml` to check the forecast endpoint
 
 ## Everyone
 
@@ -82,9 +82,14 @@ Module: **Forecasting / AI** (`app/forecasting/`) + integration
 
 ## Alpha demo script (fill in once features land)
 
-1. `flask --app run seed`, then `python run.py`, then log in as `manager`
-2. Forecast page: _TODO_
+1. Run `python -m flask --app run seed` against a fresh demo database, then
+   `python run.py`. Sign in as `manager`. Use the generated manager password
+   from the seed output or the value set in `SHIFTWISE_ADMIN_PASSWORD`.
+2. Forecast page: point out the model's error next to the baseline's, then the days marked
+   "Short by N". Press **Retrain model** and show the metrics refresh.
 3. Schedule page: report an absence, find cover, approve: _TODO_
 4. Show a blocked conflicting assignment (409): _TODO_
-5. Log in as an employee: _TODO_
+5. Sign out, then sign in as `employee`. Use the generated employee password
+   from the seed output or the value set in `SHIFTWISE_EMPLOYEE_PASSWORD`.
+   Verify that the home page shows **My Shifts** and the **employee** role.
 6. GitHub Actions: all jobs green, plus the test report artifact
