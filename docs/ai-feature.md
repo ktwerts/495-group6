@@ -108,10 +108,11 @@ causing a crash at prediction time.
 2. **Reuse vs. retrain:** `get_forecaster()` keeps the model in memory and reloads it from disk
    after a restart. It retrains only when the history has changed or the saved file can't be
    read.
-3. **Model → schedule:** for each requested day, `forecast()` compares the prediction with
-   `scheduling.count_scheduled_staff()` and reports the gap. This is the integration point with
-   the Scheduling module. Until Scheduling implements that function, `scheduled_staff` and
-   `gap` are `null` instead of the whole forecast failing.
+3. **Model → schedule:** `forecast()` gets scheduled counts for the whole range in one call to
+   `scheduling.count_scheduled_staff_between()`, compares each day with the prediction, and
+   reports the gap. This is the integration point with the Scheduling module. Until the range
+   function exists it calls `count_scheduled_staff()` once per day, and until neither exists,
+   `scheduled_staff` and `gap` are `null` instead of the whole forecast failing.
 4. **Manager in control:** the forecast only reports gaps. Nothing changes the schedule
    automatically, and both endpoints are manager-only.
 
@@ -144,4 +145,6 @@ Log in as `manager` and open **Forecast**. Pick a start date and 7, 14 or 31 day
 | Scheduling gaps are reported, not filled | A manager still has to find cover themselves | Link a short day to Scheduling's replacement recommendations | — |
 
 The end-to-end tests in `tests/test_integration.py` start from `flask seed` and cover training,
-the forecast, access control, and the call into Scheduling for each day.
+the forecast, access control, and the calls into Scheduling (one range call, or one per day as a
+fallback). A separate test trains on history with a fixed end date and checks that the model
+beats the baseline, so an accuracy regression fails CI.

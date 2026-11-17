@@ -8,12 +8,10 @@
   <label>Start <input id="forecast-start" name="start" type="date" required></label>
   <label>Days
     <select id="forecast-days" name="days">
-      <option value="7">7</option>
-      <option value="14">14</option>
-      <option value="31">31</option>
+      {% for n in day_options %}<option value="{{ n }}">{{ n }}</option>{% endfor %}
     </select>
   </label>
-  <button class="btn" type="submit">Show forecast</button>
+  <button id="show-btn" class="btn" type="submit">Show forecast</button>
   <button id="retrain-btn" class="btn secondary" type="button">Retrain model</button>
 </form>
 
@@ -44,6 +42,7 @@
 const forecastForm = document.getElementById('forecast-form');
 const startInput = document.getElementById('forecast-start');
 const daysInput = document.getElementById('forecast-days');
+const showButton = document.getElementById('show-btn');
 const retrainButton = document.getElementById('retrain-btn');
 const forecastStatus = document.getElementById('forecast-status');
 const forecastTable = document.getElementById('forecast-table');
@@ -105,6 +104,7 @@ function renderDays(days) {
 async function loadForecast() {
   const query = new URLSearchParams({ start: startInput.value, days: daysInput.value });
   forecastStatus.textContent = 'Loading forecast…';
+  showButton.disabled = true;
   try {
     const data = await api(`/api/forecast?${query}`);
     renderMetrics(data.metrics);
@@ -112,7 +112,10 @@ async function loadForecast() {
   } catch (error) {
     forecastStatus.textContent = '';
     forecastTable.hidden = true;
+    summary.hidden = true;
     showError(error);
+  } finally {
+    showButton.disabled = false;
   }
 }
 

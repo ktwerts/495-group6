@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import date, timedelta
 
 import joblib
@@ -125,6 +126,52 @@ def test_new_history_triggers_retraining(app, manager, history, scheduled):
     assert metrics["history_days"] == 181
 
 
+def test_min_history_setting_controls_method(app, manager, history):
+    assert manager.post("/api/forecast/train").get_json()["method"] == "random_forest"
+    app.config["FORECAST_MIN_HISTORY"] = 365
+    assert manager.get("/api/forecast?days=1").get_json()["method"] == "weekday_average"
+
+
+def test_max_days_setting_limits_forecast(app, manager, history):
+    app.config["FORECAST_MAX_DAYS"] = 10
+    assert manager.get("/api/forecast?days=10").status_code == 200
+    assert manager.get("/api/forecast?days=11").status_code == 400
+
+
+def test_failed_save_keeps_previous_model_file(app, manager, history, monkeypatch):
+    manager.post("/api/forecast/train")
+    path = app.config["MODEL_PATH"]
+    with open(path, "rb") as f:
+        before = f.read()
+
+    def broken_dump(contents, target):
+        with open(target, "wb") as f:
+            f.write(b"half a file")
+        raise OSError("disk full")
+
+    monkeypatch.setattr(service.joblib, "dump", broken_dump)
+    with app.app_context(), pytest.raises(OSError):
+        service.train_model()
+    with open(path, "rb") as f:
+        assert f.read() == before
+    assert not [name for name in os.listdir(os.path.dirname(path)) if name.endswith(".tmp")]
+
+
+def test_forecast_gets_scheduled_counts_in_one_call(manager, history, monkeypatch):
+    calls = []
+
+    def count_between(start, end):
+        calls.append((start, end))
+        return {"2026-12-07": 3, "2026-12-09": 5}
+
+    monkeypatch.setattr(scheduling, "count_scheduled_staff_between", count_between)
+    monkeypatch.setattr(scheduling, "count_scheduled_staff", lambda on_date: pytest.fail("per-day"))
+    days = manager.get("/api/forecast?start=2026-12-07&days=3").get_json()["days"]
+
+    assert calls == [("2026-12-07", "2026-12-09")]
+    assert [day["scheduled_staff"] for day in days] == [3, 0, 5]
+
+
 @pytest.mark.parametrize("contents", [b"not a model", None])
 def test_unreadable_model_file_is_replaced(app, manager, history, scheduled, contents):
     path = app.config["MODEL_PATH"]
@@ -142,6 +189,15 @@ def test_forecast_page_has_controls(manager):
     html = manager.get("/forecast").get_data(as_text=True)
     for element_id in ("forecast-form", "retrain-btn", "model-summary", "forecast-table"):
         assert f'id="{element_id}"' in html
+
+
+@pytest.mark.parametrize(
+    ("max_days", "options"), [(31, ["7", "14", "31"]), (10, ["7", "10"]), (5, ["5"])]
+)
+def test_forecast_page_day_options_follow_max_days(app, manager, max_days, options):
+    app.config["FORECAST_MAX_DAYS"] = max_days
+    html = manager.get("/forecast").get_data(as_text=True)
+    assert re.findall(r'<option value="(\d+)">', html) == options
 
 
 def test_forecast_page_is_manager_only(client, staff):
