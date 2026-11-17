@@ -58,7 +58,50 @@ on the same day. A successful request returns `201 Created` with the
 recorded slot. Invalid input returns `400`, an unknown employee returns
 `404`, and an exact duplicate slot returns `409`.
 
-_TODO: define the employee object (fields and types) with an example._
+**Proposed response for `GET /api/employees`**
+
+A successful request returns `200 OK` and a JSON array of active employees.
+If there are no active employees, it returns `[]`. A caller who is signed out
+receives `401`. A signed-in employee receives `403`.
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `id` | Integer | Unique employee ID |
+| `name` | String | Employee's display name |
+| `position` | String | Employee's job title |
+| `active` | Integer | `1` if the employee is active |
+| `qualifications` | Array of strings | Qualifications used to match shift requirements |
+| `max_weekly_hours` | Number | Maximum hours the employee can be scheduled per week |
+| `availability` | Array of objects | Recurring weekly availability slots |
+
+Each availability slot contains `day_of_week` (integer, 0 for Monday through
+6 for Sunday), `start_time` (string, `HH:MM`), and `end_time` (string, `HH:MM`).
+
+```json
+[
+  {
+    "id": 1,
+    "name": "Sam Rivera",
+    "position": "Cook",
+    "active": 1,
+    "qualifications": ["food safety"],
+    "max_weekly_hours": 32,
+    "availability": [
+      {
+        "day_of_week": 0,
+        "start_time": "09:00",
+        "end_time": "17:00"
+      }
+    ]
+  }
+]
+```
+
+Proposed scheduling behavior: `availability: []` means the employee has no
+recorded availability and is ineligible for automatic replacement recommendations.
+
+For review with Scheduling: confirm the empty-availability rule and how
+qualification strings are matched.
 
 ## Scheduling (Lead Architect)
 
