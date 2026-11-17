@@ -26,5 +26,7 @@ def forecast():
     return jsonify(service.forecast(start, days))
 
 
-# TODO(Integration Lead): add an endpoint to retrain the model (e.g. POST /api/forecast/train)
-# and document both endpoints in docs/api-spec.md.
+@bp.post("/api/forecast/train")
+@role_required("manager")
+def train():
+    return jsonify(service.train_model())

@@ -9,8 +9,6 @@ import pytest
 from app.forecasting.features import FEATURE_NAMES, build_features, history_to_xy
 from app.forecasting.model import StaffingForecaster
 
-TODO = pytest.mark.skip(reason="TODO: implement forecasting module")
-
 FRIDAY = date(2026, 1, 9)
 
 
@@ -237,8 +235,3 @@ def test_fallback_ignores_valid_workload():
 def test_predict_before_training_rejected():
     with pytest.raises(RuntimeError):
         StaffingForecaster().predict(date(2026, 6, 1))
-
-
-@TODO
-def test_forecast_endpoint_shows_gap(manager):
-    """Integration: /api/forecast compares predictions with scheduling.count_scheduled_staff()."""
