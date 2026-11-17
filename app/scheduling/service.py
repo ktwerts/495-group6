@@ -1,3 +1,4 @@
+
 """Shifts, absences and replacement recommendations.
 
 Owner: Lead Architect
@@ -13,15 +14,14 @@ Tips:
 - Delete each `raise NotImplementedError` as you implement the function.
 """
 
-from app.db import get_db  # noqa: F401  (you'll need this)
+from datetime import date, datetime
 
+from app.db import get_db
+from app.errors import ValidationError
 
 
 def list_shifts(start: str | None = None, end: str | None = None) -> list[dict]:
     """Return scheduled shifts, optionally filtered by date."""
-
-    from datetime import date
-    from app.errors import ValidationError
 
     # Validate optional date filters.
     for value in (start, end):
@@ -31,7 +31,7 @@ def list_shifts(start: str | None = None, end: str | None = None) -> list[dict]:
             except (TypeError, ValueError):
                 raise ValidationError(
                     "Dates must use YYYY-MM-DD format."
-                )
+                ) from None
 
     if start and end and start > end:
         raise ValidationError(
@@ -63,11 +63,8 @@ def list_shifts(start: str | None = None, end: str | None = None) -> list[dict]:
     return [dict(row) for row in rows]
 
 
-
 def create_shift(data: dict) -> dict:
     """Create an open shift without an assigned employee."""
-    from datetime import date, datetime
-    from app.errors import ValidationError
 
     if not isinstance(data, dict):
         raise ValidationError("Shift data must be an object.")
@@ -88,13 +85,17 @@ def create_shift(data: dict) -> dict:
         if shift_date.isoformat() != data["date"]:
             raise ValueError()
     except ValueError:
-        raise ValidationError("Date must use YYYY-MM-DD format.")
+        raise ValidationError(
+            "Date must use YYYY-MM-DD format."
+        ) from None
 
     try:
         start = datetime.strptime(data["start_time"], "%H:%M")
         end = datetime.strptime(data["end_time"], "%H:%M")
     except ValueError:
-        raise ValidationError("Times must use HH:MM format.")
+        raise ValidationError(
+            "Times must use HH:MM format."
+        ) from None
 
     if start >= end:
         raise ValidationError("End time must be after start time.")
@@ -131,19 +132,17 @@ def create_shift(data: dict) -> dict:
     return dict(row)
 
 
-
-
 def count_scheduled_staff(on_date: str) -> int:
     """Count distinct employees assigned to shifts on a date."""
-    from datetime import date
-    from app.errors import ValidationError
 
     try:
         parsed_date = date.fromisoformat(on_date)
         if parsed_date.isoformat() != on_date:
             raise ValueError()
     except (TypeError, ValueError):
-        raise ValidationError("Date must use YYYY-MM-DD format.")
+        raise ValidationError(
+            "Date must use YYYY-MM-DD format."
+        ) from None
 
     db = get_db()
 

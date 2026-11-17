@@ -1,6 +1,7 @@
 """Scheduling HTTP routes. Keep these thin: parse the request, call service, return JSON."""
 
 from flask import Blueprint, jsonify, render_template, request
+
 from app.auth.decorators import role_required
 from app.scheduling import service
 
