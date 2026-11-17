@@ -1,6 +1,7 @@
 """Connects the staffing model to the database and the schedule."""
 
 import os
+import tempfile
 from datetime import date, timedelta
 
 import joblib
@@ -26,23 +27,37 @@ def train_model() -> dict:
     if not history:
         raise ValidationError("No staffing history yet. Run `flask seed` to load sample data.")
 
-    forecaster = StaffingForecaster()
+    forecaster = StaffingForecaster(min_history=current_app.config["FORECAST_MIN_HISTORY"])
     try:
         metrics = forecaster.train(history)
     except ValueError as exc:
         raise ValidationError(f"Staffing history has invalid data: {exc}") from exc
 
     version = _history_version()
-    joblib.dump({"forecaster": forecaster, "history_version": version}, _model_path())
+    _save_model({"forecaster": forecaster, "history_version": version})
     current_app.extensions[CACHE_KEY] = (forecaster, version)
     return metrics
 
 
+def _save_model(contents: dict) -> None:
+    # Write to a temp file and swap it in, so a crash or a second retrain never leaves half a file
+    path = _model_path()
+    fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(path) or ".", suffix=".tmp")
+    os.close(fd)
+    try:
+        joblib.dump(contents, tmp_path)
+        os.replace(tmp_path, path)
+    except BaseException:
+        os.remove(tmp_path)
+        raise
+
+
 def get_forecaster() -> StaffingForecaster:
-    """Return a model trained on the current history, retraining only when needed."""
+    """Return a model trained on the current history and settings, retraining only when needed."""
     version = _history_version()
     cached = current_app.extensions.get(CACHE_KEY) or _load_saved_model()
-    if cached and cached[1] == version:
+    min_history = current_app.config["FORECAST_MIN_HISTORY"]
+    if cached and cached[1] == version and cached[0].min_history == min_history:
         current_app.extensions[CACHE_KEY] = cached
         return cached[0]
     train_model()
@@ -68,11 +83,16 @@ def _model_path() -> str:
     return current_app.config["MODEL_PATH"]
 
 
-def _scheduled_staff(day: date) -> int | None:
+def _scheduled_counts(dates: list[str]) -> list[int | None]:
     try:
-        return scheduling.count_scheduled_staff(day.isoformat())
+        counts = scheduling.count_scheduled_staff_between(dates[0], dates[-1])
+        return [counts.get(day, 0) for day in dates]
     except NotImplementedError:
-        return None
+        pass
+    try:
+        return [scheduling.count_scheduled_staff(day) for day in dates]
+    except NotImplementedError:
+        return [None] * len(dates)
 
 
 def forecast(start: date, days: int) -> dict:
@@ -82,11 +102,11 @@ def forecast(start: date, days: int) -> dict:
     gap are None while the scheduling module can't report counts.
     """
     forecaster = get_forecaster()
+    dates = [start + timedelta(days=offset) for offset in range(days)]
+    scheduled_counts = _scheduled_counts([day.isoformat() for day in dates])
     results = []
-    for offset in range(days):
-        day = start + timedelta(days=offset)
+    for day, scheduled in zip(dates, scheduled_counts, strict=True):
         predicted = forecaster.predict(day)
-        scheduled = _scheduled_staff(day)
         results.append(
             {
                 "date": day.isoformat(),

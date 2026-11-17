@@ -115,7 +115,7 @@ _TODO: define the shift object, and list the constraint violation messages the A
 
 | Method | Path | Role | Body / query | Returns | Status |
 |--------|------|------|--------------|---------|--------|
-| GET | `/api/forecast?start=YYYY-MM-DD&days=7` | M | `days` 1–31 (default 7); `start` defaults to today | Forecast (200) | Implemented |
+| GET | `/api/forecast?start=YYYY-MM-DD&days=7` | M | `days` 1–31 (default 7, max set by `FORECAST_MAX_DAYS`); `start` defaults to today | Forecast (200) | Implemented |
 | POST | `/api/forecast/train` | M | — | Model metrics (200) | Implemented |
 
 `GET /api/forecast` trains a model automatically the first time, and again whenever the
@@ -139,7 +139,7 @@ staffing history changes. Otherwise it reuses the saved model.
 
 | Field | Meaning |
 |-------|---------|
-| `method` | `random_forest`, or `weekday_average` with under 28 days of history |
+| `method` | `random_forest`, or `weekday_average` with under 28 days of history (`SHIFTWISE_FORECAST_MIN_HISTORY`) |
 | `metrics` | Same object `POST /api/forecast/train` returns. The fallback includes only `method` and `history_days` |
 | `expected_workload` | Average historical workload for that weekday |
 | `predicted_staff_needed` | Whole number of staff, minimum 1, rounded up |
