@@ -49,3 +49,7 @@ input, select { padding: 7px 9px; border: 1px solid var(--border); border-radius
 .flash { padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; }
 .flash.ok { background: #e7f6ec; color: var(--good); }
 .flash.error { background: #fdecea; color: var(--bad); }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.stat { display: flex; flex-direction: column; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: .9rem; }
+.stat strong { font-size: 1.05rem; }
