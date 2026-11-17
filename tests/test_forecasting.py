@@ -1,9 +1,4 @@
-"""Forecasting (AI) module tests. Owner: Integration Lead.
-
-These are templates: remove the skip marker as you implement each feature.
-Test the model on small synthetic data so tests stay fast and deterministic
-(set random_state).
-"""
+"""Forecasting features and model tests. Owner: Integration Lead."""
 
 import math
 import random
@@ -53,7 +48,7 @@ def test_workload_passes_through():
     assert named(FRIDAY, 72.5)["workload_units"] == 72.5
 
 
-@pytest.mark.parametrize("workload", [-1, float("nan"), float("inf"), float("-inf")])
+@pytest.mark.parametrize("workload", [-1, float("nan"), float("inf"), float("-inf"), "50", None])
 def test_invalid_workload_rejected(workload):
     with pytest.raises(ValueError):
         build_features(FRIDAY, workload)
@@ -201,6 +196,42 @@ def test_min_history_must_allow_a_train_test_split():
     with pytest.raises(ValueError):
         StaffingForecaster(min_history=1)
     assert StaffingForecaster(min_history=2).train(sample_rows(days=2))["method"] == "random_forest"
+
+
+@pytest.mark.parametrize(
+    "bad_value",
+    [
+        {"staff_needed": float("nan")},
+        {"staff_needed": float("inf")},
+        {"staff_needed": 3.9},
+        {"staff_needed": -4},
+        {"staff_needed": "3"},
+        {"workload_units": float("nan")},
+    ],
+)
+def test_fallback_rejects_invalid_history(bad_value):
+    rows = sample_rows(days=10)
+    rows[0].update(bad_value)
+    forecaster = StaffingForecaster()
+    with pytest.raises(ValueError, match="2026-01-05|workload_units"):
+        forecaster.train(rows)
+    assert forecaster.metrics == {}
+
+
+@pytest.mark.parametrize("workload", [-50, float("nan"), float("inf"), "90"])
+@pytest.mark.parametrize("days", [10, 120])
+def test_predict_rejects_invalid_workload_in_both_modes(days, workload):
+    forecaster = StaffingForecaster()
+    forecaster.train(sample_rows(days=days))
+    with pytest.raises(ValueError):
+        forecaster.predict(date(2026, 6, 1), workload_units=workload)
+
+
+def test_fallback_ignores_valid_workload():
+    forecaster = StaffingForecaster()
+    forecaster.train(sample_rows(days=10))
+    monday = date(2026, 6, 1)
+    assert forecaster.predict(monday, workload_units=500) == forecaster.predict(monday)
 
 
 def test_predict_before_training_rejected():

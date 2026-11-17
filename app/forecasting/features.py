@@ -14,13 +14,20 @@ FEATURE_NAMES = [
 ]
 
 
+def check_workload(workload_units) -> float:
+    """Return workload_units as a float, or raise ValueError unless it's a finite number >= 0."""
+    is_number = isinstance(workload_units, int | float) and not isinstance(workload_units, bool)
+    if not is_number or not math.isfinite(workload_units) or workload_units < 0:
+        raise ValueError(f"workload_units must be a finite number >= 0, got {workload_units!r}")
+    return float(workload_units)
+
+
 def build_features(day: date, workload_units: float) -> list[float]:
     """Return the values for one day, in FEATURE_NAMES order.
 
     workload_units must be a finite number >= 0.
     """
-    if not math.isfinite(workload_units) or workload_units < 0:
-        raise ValueError(f"workload_units must be a finite number >= 0, got {workload_units!r}")
+    workload_units = check_workload(workload_units)
     weekday = day.weekday()
     # sin/cos keeps Dec 31 and Jan 1 close together instead of 365 apart
     angle = 2 * math.pi * day.timetuple().tm_yday / 365.25

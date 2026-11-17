@@ -81,8 +81,14 @@ These numbers come from synthetic data (TD-3), so they show the pipeline works, 
 would be this accurate on a real workplace.
 
 **Predictions:** for a future day, workload isn't known yet, so the model uses that weekday's
-average workload unless a value is passed in. Predictions are rounded **up** to a whole
-person, with a minimum of 1, because being one person short is worse than having one extra.
+average workload unless a value is passed in. A passed-in workload must be a finite number
+>= 0. The weekday-average fallback has no workload input, so there it's checked and then
+ignored. Predictions are rounded **up** to a whole person, with a minimum of 1, because being
+one person short is worse than having one extra.
+
+**Input validation:** `train()` validates every history row before using it, on both the
+random forest and fallback paths, so a bad row raises `ValueError` naming its date instead of
+causing a crash at prediction time.
 
 **Too little history:**
 

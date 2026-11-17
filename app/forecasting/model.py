@@ -6,13 +6,14 @@ from datetime import date
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_absolute_error
 
-from app.forecasting.features import build_features, history_to_xy
+from app.forecasting.features import build_features, check_workload, history_to_xy
 
 MIN_HISTORY_DAYS = 28
 TEST_FRACTION = 0.2
 
 
 def weekday_averages(rows, field: str) -> dict[int, float]:
+    """Average of `field` per weekday (0 = Monday) across the given history rows."""
     values: dict[int, list[float]] = {}
     for row in rows:
         weekday = date.fromisoformat(row["record_date"]).weekday()
@@ -27,6 +28,12 @@ def _lookup(averages: dict[int, float], day: date) -> float:
 
 
 class StaffingForecaster:
+    """Predicts staff needed per day.
+
+    Uses a random forest once there are at least `min_history` days of history,
+    and weekday averages before that.
+    """
+
     def __init__(self, min_history: int = MIN_HISTORY_DAYS, random_state: int = 42):
         if min_history < 2:
             raise ValueError("min_history must be at least 2 to split into train and test")
@@ -47,11 +54,18 @@ class StaffingForecaster:
         )
 
     def train(self, rows) -> dict:
+        """Train on staffing-history rows and return evaluation metrics.
+
+        Every row is validated first, so bad data raises ValueError on either path and a
+        failed retrain leaves the previous model in place. Random forest metrics include
+        mae, baseline_mae and beats_baseline; the fallback reports only method and
+        history_days.
+        """
         rows = sorted(rows, key=lambda r: r["record_date"])
         if not rows:
             raise ValueError("no staffing history to train on")
+        history_to_xy(rows)
 
-        # Build everything first so a failed retrain leaves the previous model in place.
         model, metrics = self._fit(rows) if len(rows) >= self.min_history else (None, None)
         self.model = model
         self.staff_by_weekday = weekday_averages(rows, "staff_needed")
@@ -89,11 +103,20 @@ class StaffingForecaster:
         }
 
     def expected_workload(self, day: date) -> float:
+        """Average historical workload for the weekday of `day`."""
         self._require_trained()
         return _lookup(self.workload_by_weekday, day)
 
     def predict(self, day: date, workload_units: float | None = None) -> int:
+        """Staff needed on `day`, rounded up, minimum 1.
+
+        workload_units defaults to that weekday's average. If given, it must be a finite
+        number >= 0. The weekday-average fallback can't use workload, so it's checked
+        but otherwise ignored there.
+        """
         self._require_trained()
+        if workload_units is not None:
+            workload_units = check_workload(workload_units)
         if self.model is None:
             raw = _lookup(self.staff_by_weekday, day)
         else:
