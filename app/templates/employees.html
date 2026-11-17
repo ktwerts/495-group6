@@ -2,21 +2,135 @@
 {% block title %}Employees · ShiftWise AI{% endblock %}
 {% block content %}
 <h1>Employees</h1>
-<p class="muted">Owner: Interface Designer</p>
+<form id="add-employee-form">
+  <label for="employee-name">Name</label>
+  <input id="employee-name" name="name" required maxlength="100">
 
-{#
-  TODO:
-  - Table of employees (name, position, qualifications, availability) loaded from /api/employees
-  - Form to add an employee, and a way to edit availability
-  Use the helpers in static/js/app.js: api() for requests, esc() before inserting
-  any data into HTML, formData() for forms, showMessage() / showError() for feedback.
-#}
-<div id="employees"></div>
+  <label for="employee-position">Position</label>
+  <input id="employee-position" name="position" required maxlength="100">
+
+  <button type="submit" disabled>Add employee</button>
+</form>
+<form id="add-availability-form">
+  <label for="availability-employee">Employee</label>
+  <select id="availability-employee" name="employee_id" required>
+    <option value="">Select an employee</option>
+  </select>
+
+  <label for="availability-day">Day</label>
+  <select id="availability-day" name="day_of_week" required>
+    <option value="0">Monday</option>
+    <option value="1">Tuesday</option>
+    <option value="2">Wednesday</option>
+    <option value="3">Thursday</option>
+    <option value="4">Friday</option>
+    <option value="5">Saturday</option>
+    <option value="6">Sunday</option>
+  </select>
+
+  <label for="availability-start">Start time</label>
+  <input id="availability-start" name="start_time" type="time" required>
+
+  <label for="availability-end">End time</label>
+  <input id="availability-end" name="end_time" type="time" required>
+
+  <button type="submit" disabled>Add availability</button>
+</form>
+<p id="employees-status" role="status">Loading employees…</p>
+<table id="employees-table" hidden>
+  <thead>
+    <tr>
+      <th scope="col">Name</th>
+      <th scope="col">Position</th>
+      <th scope="col">Qualifications</th>
+      <th scope="col">Availability</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
 {% endblock %}
 {% block scripts %}
 <script>
-  api('/api/employees')
-    .then(list => { document.getElementById('employees').textContent = `${list.length} employees`; })
-    .catch(showError);
+const employeeStatus = document.getElementById('employees-status');
+const employeeTable = document.getElementById('employees-table');
+const employeeForm = document.getElementById('add-employee-form');
+const addButton = employeeForm.querySelector('button');
+const availabilityForm = document.getElementById('add-availability-form');
+const availabilityEmployee = document.getElementById('availability-employee');
+const availabilityButton = availabilityForm.querySelector('button');
+
+const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const availabilityByEmployee = new Map();
+
+function renderAvailability({ cell, slots }) {
+  cell.textContent = slots
+    .map(slot => `${weekdays[slot.day_of_week]} ${slot.start_time}–${slot.end_time}`)
+    .join(', ') || '—';
+}
+
+function addEmployeeRow(employee) {
+  const row = employeeTable.tBodies[0].insertRow();
+  row.insertCell().textContent = employee.name;
+  row.insertCell().textContent = employee.position;
+  row.insertCell().textContent = employee.qualifications.join(', ') || '—';
+    const availability = { cell: row.insertCell(), slots: employee.availability };
+  availabilityByEmployee.set(String(employee.id), availability);
+  renderAvailability(availability);
+  employeeStatus.hidden = true;
+  employeeTable.hidden = false;
+  availabilityEmployee.add(new Option(employee.name, employee.id));
+  availabilityButton.disabled = false;
+}
+
+api('/api/employees')
+  .then(employees => {
+    if (employees.length === 0) {
+      employeeStatus.textContent = 'No active employees.';
+    }
+
+    employees.forEach(addEmployeeRow);
+    addButton.disabled = false;
+  })
+  .catch(error => {
+    employeeStatus.hidden = true;
+    showError(error);
+  });
+
+employeeForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  addButton.disabled = true;
+
+  try {
+    const employee = await api('/api/employees', {
+      method: 'POST',
+      body: formData(employeeForm),
+    });
+    addEmployeeRow(employee);
+    employeeForm.reset();
+    showMessage('Employee added.');
+  } catch (error) {
+    showError(error);
+  } finally {
+    addButton.disabled = false;
+  }
+});
+availabilityForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const { employee_id, day_of_week, start_time, end_time } = formData(availabilityForm);
+  availabilityButton.disabled = true;
+
+  try {
+    const slot = await api(`/api/employees/${employee_id}/availability`, {
+      method: 'POST',
+      body: { day_of_week: Number(day_of_week), start_time, end_time },
+    });
+    availabilityForm.reset();
+    showMessage('Availability added.');
+  } catch (error) {
+    showError(error);
+  } finally {
+    availabilityButton.disabled = false;
+  }
+});
 </script>
 {% endblock %}

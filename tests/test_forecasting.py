@@ -53,9 +53,15 @@ def test_workload_passes_through():
     assert named(FRIDAY, 72.5)["workload_units"] == 72.5
 
 
-def test_negative_workload_rejected():
+@pytest.mark.parametrize("workload", [-1, float("nan"), float("inf"), float("-inf")])
+def test_invalid_workload_rejected(workload):
     with pytest.raises(ValueError):
-        build_features(FRIDAY, -1)
+        build_features(FRIDAY, workload)
+
+
+@pytest.mark.parametrize("workload", [0, 0.0, 42.75])
+def test_zero_and_decimal_workload_allowed(workload):
+    assert named(FRIDAY, workload)["workload_units"] == workload
 
 
 def test_history_to_xy():
@@ -70,6 +76,22 @@ def test_history_to_xy():
 
 def test_history_to_xy_empty():
     assert history_to_xy([]) == ([], [])
+
+
+def history_row(staff_needed):
+    return {"record_date": "2026-01-09", "workload_units": 50.0, "staff_needed": staff_needed}
+
+
+@pytest.mark.parametrize("staff_needed", [3, 3.0])
+def test_whole_staff_count_accepted(staff_needed):
+    _, targets = history_to_xy([history_row(staff_needed)])
+    assert targets == [3] and isinstance(targets[0], int)
+
+
+@pytest.mark.parametrize("staff_needed", [3.9, 0, -2, float("nan"), True, "3"])
+def test_invalid_staff_count_rejected(staff_needed):
+    with pytest.raises(ValueError, match="2026-01-09"):
+        history_to_xy([history_row(staff_needed)])
 
 
 def sample_rows(days=120, start=date(2026, 1, 5), seed=0):
