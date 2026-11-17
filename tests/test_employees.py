@@ -37,6 +37,17 @@ def test_create_employee_rejects_missing_name(manager):
     assert manager.post("/api/employees", json={"position": "Cook"}).status_code == 400
 
 
+@pytest.mark.parametrize("field", ["name", "position"])
+def test_create_employee_rejects_fields_over_100_characters(manager, field):
+    employee = {"name": "Alex Chen", "position": "Cook"}
+    employee[field] = "A" * 101
+
+    response = manager.post("/api/employees", json=employee)
+
+    assert response.status_code == 400
+    assert field in response.get_json()["error"]
+
+
 def test_manager_can_add_employee_availability(manager):
     created = manager.post("/api/employees", json={"name": "Alex Chen", "position": "Cook"})
     assert created.status_code == 201
@@ -49,6 +60,35 @@ def test_manager_can_add_employee_availability(manager):
     employees = manager.get("/api/employees").get_json()
     alex = next(employee for employee in employees if employee["id"] == employee_id)
     assert alex["availability"] == [slot]
+
+
+def test_add_availability_rejects_unknown_employee(manager):
+    slot = {"day_of_week": 0, "start_time": "09:00", "end_time": "17:00"}
+
+    response = manager.post("/api/employees/999999/availability", json=slot)
+
+    assert response.status_code == 404
+    assert response.get_json()["error"]
+
+
+@pytest.mark.parametrize(
+    ("start", "end"),
+    [("09:00", "12:00"), ("11:00", "14:00")],
+    ids=["duplicate", "overlap"],
+)
+def test_add_availability_rejects_conflicting_slot(manager, start, end):
+    created = manager.post("/api/employees", json={"name": "Alex Chen", "position": "Cook"})
+    assert created.status_code == 201
+    employee_id = created.get_json()["id"]
+    url = f"/api/employees/{employee_id}/availability"
+    existing_slot = {"day_of_week": 0, "start_time": "09:00", "end_time": "12:00"}
+    assert manager.post(url, json=existing_slot).status_code == 201
+
+    slot = {"day_of_week": 0, "start_time": start, "end_time": end}
+    response = manager.post(url, json=slot)
+
+    assert response.status_code == 409
+    assert response.get_json()["error"]
 
 
 def test_list_employees(manager):

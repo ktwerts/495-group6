@@ -4,10 +4,10 @@
 <h1>Employees</h1>
 <form id="add-employee-form">
   <label for="employee-name">Name</label>
-  <input id="employee-name" name="name" required>
+  <input id="employee-name" name="name" required maxlength="100">
 
   <label for="employee-position">Position</label>
-  <input id="employee-position" name="position" required>
+  <input id="employee-position" name="position" required maxlength="100">
 
   <button type="submit" disabled>Add employee</button>
 </form>
@@ -43,6 +43,7 @@
       <th scope="col">Name</th>
       <th scope="col">Position</th>
       <th scope="col">Qualifications</th>
+      <th scope="col">Availability</th>
     </tr>
   </thead>
   <tbody></tbody>
@@ -58,11 +59,23 @@ const availabilityForm = document.getElementById('add-availability-form');
 const availabilityEmployee = document.getElementById('availability-employee');
 const availabilityButton = availabilityForm.querySelector('button');
 
+const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const availabilityByEmployee = new Map();
+
+function renderAvailability({ cell, slots }) {
+  cell.textContent = slots
+    .map(slot => `${weekdays[slot.day_of_week]} ${slot.start_time}–${slot.end_time}`)
+    .join(', ') || '—';
+}
+
 function addEmployeeRow(employee) {
   const row = employeeTable.tBodies[0].insertRow();
   row.insertCell().textContent = employee.name;
   row.insertCell().textContent = employee.position;
   row.insertCell().textContent = employee.qualifications.join(', ') || '—';
+    const availability = { cell: row.insertCell(), slots: employee.availability };
+  availabilityByEmployee.set(String(employee.id), availability);
+  renderAvailability(availability);
   employeeStatus.hidden = true;
   employeeTable.hidden = false;
   availabilityEmployee.add(new Option(employee.name, employee.id));
@@ -107,7 +120,7 @@ availabilityForm.addEventListener('submit', async event => {
   availabilityButton.disabled = true;
 
   try {
-    await api(`/api/employees/${employee_id}/availability`, {
+    const slot = await api(`/api/employees/${employee_id}/availability`, {
       method: 'POST',
       body: { day_of_week: Number(day_of_week), start_time, end_time },
     });

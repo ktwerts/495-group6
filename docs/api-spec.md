@@ -39,7 +39,7 @@ endpoint change, so teammates can code against it.
 ## Employees (Interface Designer)
 
 To create an employee, send `name` and `position` as nonblank strings.
-Leading and trailing whitespace is trimmed. A successful request returns
+Leading and trailing whitespace is trimmed. Each field must be at most 100 characters after trimming. A successful request returns
 `201 Created` with `id`, `name`, `position`, `active` (integer `1`),
 `max_weekly_hours` (number, defaults to `40`), and empty `qualifications`
 and `availability` arrays. Invalid input returns `400`. A signed-out
@@ -55,8 +55,7 @@ To record a weekly availability slot, send `day_of_week` as an integer
 from `0` (Monday) to `6` (Sunday), with `start_time` and `end_time` in
 24-hour `HH:MM` format. The end time must be later than the start time
 on the same day. A successful request returns `201 Created` with the
-recorded slot. Invalid input returns `400`, an unknown employee returns
-`404`, and an exact duplicate slot returns `409`.
+recorded slot. Invalid input returns `400`, an unknown employee returns `404`, and a slot that overlaps an existing slot for the same employee and weekday returns `409`. Back-to-back slots are allowed.
 
 **Response for `GET /api/employees`**
 

@@ -68,9 +68,12 @@ def create_employee(data: dict) -> dict:
     fields = {}
     for field in ("name", "position"):
         value = data.get(field)
-        if not isinstance(value, str) or not value.strip():
+        value = value.strip() if isinstance(value, str) else ""
+        if not value:
             raise ValidationError(f"{field} must be a non-empty string")
-        fields[field] = value.strip()
+        if len(value) > 100:
+            raise ValidationError(f"{field} must be at most 100 characters")
+        fields[field] = value
 
     max_weekly_hours = 40
     db = get_db()
@@ -117,22 +120,27 @@ def add_availability(employee_id: int, data: dict) -> dict:
     end = parse_time(data.get("end_time"), "end_time")
     if end <= start:
         raise ValidationError("end_time must be after start_time")
-
     db = get_db()
     employee = db.execute("SELECT id FROM employees WHERE id = ?", (employee_id,)).fetchone()
     if employee is None:
-        raise NotFoundError("Employee not found")
-
+        raise NotFoundError(f"Employee {employee_id} not found")
     result = db.execute(
         """
         INSERT INTO availability (employee_id, day_of_week, start_time, end_time)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT (employee_id, day_of_week, start_time, end_time) DO NOTHING
+        SELECT :employee_id, :day, :start, :end
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM availability
+            WHERE employee_id = :employee_id
+              AND day_of_week = :day
+              AND start_time < :end
+              AND end_time > :start
+        )
         """,
-        (employee_id, day, start, end),
+        {"employee_id": employee_id, "day": day, "start": start, "end": end},
     )
     if result.rowcount == 0:
-        raise ConflictError("This availability slot already exists")
+        raise ConflictError("This availability slot overlaps an existing slot")
 
     db.commit()
     return {"day_of_week": day, "start_time": start, "end_time": end}
