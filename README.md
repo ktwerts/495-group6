@@ -97,7 +97,7 @@ app/
   auth/                login, roles (working)
   employees/           TODO: employee records + availability
   scheduling/          TODO: shifts, absences, constraints.py, recommendations
-  forecasting/         TODO: features.py, model.py (scikit-learn), service.py
+  forecasting/         staffing history, features, random forest model, forecast API
   templates/, static/  base layout + placeholder pages
 tests/                 foundation tests + skipped templates per module
 docs/                  checklist, outlines for each role, templates
