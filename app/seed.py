@@ -5,6 +5,7 @@ import secrets
 
 from app.auth.service import create_user
 from app.db import get_db
+from app.forecasting.history import seed_staffing_history
 
 
 def seed_all() -> tuple[str | None, str | None]:
@@ -12,8 +13,6 @@ def seed_all() -> tuple[str | None, str | None]:
 
     TODO (each owner adds sample data for their module):
       - Lead Architect: a week of shifts (leave a few open to demo replacements)
-      - Integration Lead: several months of staffing history for training the model
-        (synthetic is fine for alpha; note it in docs/technical-debt.md)
     """
     password = os.environ.get("SHIFTWISE_ADMIN_PASSWORD")
     generated = None
@@ -42,4 +41,5 @@ def seed_all() -> tuple[str | None, str | None]:
         employee_password = generated_employee = secrets.token_urlsafe(12)
 
     create_user("employee", employee_password, "employee", employee.lastrowid)
+    seed_staffing_history()
     return generated, generated_employee

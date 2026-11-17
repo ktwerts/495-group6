@@ -13,10 +13,26 @@ when absences occur._
 
 ## Data
 
-_TODO:_
+Training data lives in the `staffing_history` table, with one row per past day:
 
-- What does each training row contain, and where does it come from (synthetic for alpha is fine)?
-- Which table stores it?
+| Column | Meaning |
+|--------|---------|
+| `record_date` | The day (`YYYY-MM-DD`, unique) |
+| `workload_units` | How busy the day was (e.g. orders or customer visits) |
+| `staff_needed` | How many staff that workload actually required (**what the model predicts**) |
+| `absences` | Unplanned absences that day (the proposal's "historical attendance") |
+
+For the alpha, `flask seed` fills the table with 180 days of **synthetic** history from
+`generate_sample_history()` in `app/forecasting/history.py`. The generator builds in patterns
+the model should learn:
+
+- Fridays are somewhat busier, and Saturdays and Sundays are much busier.
+- There's a mild yearly seasonal swing.
+- Staff needed follows workload, with random variation, so the model can't simply memorize a
+  formula.
+
+A fixed random seed makes the data identical on every run, so tests and demos are repeatable.
+Using synthetic data is a known limitation; see TD-3 in [technical-debt.md](technical-debt.md).
 
 ## Features
 

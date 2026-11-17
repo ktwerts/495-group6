@@ -41,4 +41,13 @@ CREATE TABLE availability (
 --   shifts            (Lead Architect):     date, start/end time, required qualification, employee, status
 --   absences          (Lead Architect):     employee, date, reason
 --   recommendations   (Lead Architect):     shift, suggested employee, score, pending/approved/rejected
---   staffing_history  (Integration Lead):   date, workload, staff needed (training data for the model)
+
+-- Forecast training data, one row per day.
+DROP TABLE IF EXISTS staffing_history;
+
+CREATE TABLE staffing_history (
+    record_date    TEXT    PRIMARY KEY,
+    workload_units REAL    NOT NULL CHECK (workload_units >= 0),
+    staff_needed   INTEGER NOT NULL CHECK (staff_needed >= 1),
+    absences       INTEGER NOT NULL DEFAULT 0 CHECK (absences >= 0)
+);
