@@ -6,7 +6,7 @@ These functions validate employee assignments without
 accessing the database or Flask.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 
 def parse_time(value: str):
@@ -24,12 +24,25 @@ def times_overlap(a_start: str, a_end: str, b_start: str, b_end: str) -> bool:
     return a_start_time < b_end_time and b_start_time < a_end_time
 
 
+def shift_hours(shift: dict) -> float:
+    """Length of a same-day shift in hours."""
+    start = datetime.combine(date.min, parse_time(shift["start_time"]))
+    end = datetime.combine(date.min, parse_time(shift["end_time"]))
+    return (end - start) / timedelta(hours=1)
+
+
+def week_of(day: str) -> tuple[str, str]:
+    """Monday and Sunday (YYYY-MM-DD) of the week containing `day`."""
+    monday = date.fromisoformat(day) - timedelta(days=date.fromisoformat(day).weekday())
+    return monday.isoformat(), (monday + timedelta(days=6)).isoformat()
+
+
 def check_assignment(employee: dict, shift: dict, **context) -> list[str]:
     """Check whether an employee can work a shift.
 
     Context:
         availability: weekly availability slots
-        other_shifts: existing employee shifts
+        other_shifts: the employee's other assigned shifts in the same Monday-Sunday week
         absences: reported employee absences
 
     Returns a list of violations, or [] if valid.
@@ -87,6 +100,21 @@ def check_assignment(employee: dict, shift: dict, **context) -> list[str]:
             if times_overlap(start, end, existing["start_time"], existing["end_time"]):
                 violations.append("Employee already has an overlapping shift.")
                 break
+
+    # Check the weekly hour limit.
+    limit = employee.get("max_weekly_hours")
+    if limit:
+        monday, sunday = week_of(shift_date)
+        week_hours = sum(
+            shift_hours(existing)
+            for existing in other_shifts
+            if monday <= existing["date"] <= sunday
+        )
+        if week_hours + shift_hours(shift) > limit:
+            violations.append(
+                f"Shift would put the employee over their weekly limit "
+                f"({week_hours + shift_hours(shift):g} of {limit:g} hours)."
+            )
 
     # Check reported absences.
     if any(a["date"] == shift_date for a in absences):

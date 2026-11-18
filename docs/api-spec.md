@@ -184,6 +184,8 @@ Assignment validation checks:
 - Employee is available for the entire shift.
 - Employee does not have an overlapping shift.
 - Employee has no reported absence on the shift date.
+- The shift doesn't take the employee past `max_weekly_hours` for that Monday-Sunday week
+  (counting their other assigned shifts).
 
 The assignment and replacement recommendation features
 are not yet fully implemented.

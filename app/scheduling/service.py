@@ -139,12 +139,13 @@ def assign_shift(shift_id: int, employee_id: int) -> dict:
     employee = _get_employee(employee_id)
 
     db = get_db()
+    monday, sunday = constraints.week_of(shift["date"])
     other_shifts = db.execute(
         """
         SELECT date, start_time, end_time FROM shifts
-        WHERE employee_id = ? AND status = 'assigned' AND date = ? AND id != ?
+        WHERE employee_id = ? AND status = 'assigned' AND date BETWEEN ? AND ? AND id != ?
         """,
-        (employee_id, shift["date"], shift_id),
+        (employee_id, monday, sunday, shift_id),
     ).fetchall()
     absences = db.execute(
         "SELECT date FROM absences WHERE employee_id = ? AND date = ?",

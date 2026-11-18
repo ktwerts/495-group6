@@ -132,14 +132,14 @@ def test_single_digit_time_overlap():
     assert constraints.times_overlap("9:00", "9:30", "09:15", "09:45")
 
 
-def add_employee(app, name="Alex Chen", qualifications='["cashier"]', active=1):
+def add_employee(app, name="Alex Chen", qualifications='["cashier"]', active=1, max_hours=40):
     """Employee available Tuesdays 08:00-18:00 (2026-11-17 is a Tuesday)."""
     with app.app_context():
         db = get_db()
         employee_id = db.execute(
             "INSERT INTO employees (name, position, qualifications, max_weekly_hours, active)"
-            " VALUES (?, 'Cashier', ?, 40, ?)",
-            (name, qualifications, active),
+            " VALUES (?, 'Cashier', ?, ?, ?)",
+            (name, qualifications, max_hours, active),
         ).lastrowid
         db.execute(
             "INSERT INTO availability (employee_id, day_of_week, start_time, end_time)"
@@ -212,6 +212,41 @@ def test_assignment_breaking_a_rule_returns_409(app, manager, changes, violation
     assert res.status_code == 409
     assert violation in res.get_json()["violations"]
     assert manager.get("/api/shifts").get_json()[0]["status"] == "open"
+
+
+def test_assignment_over_weekly_hours_returns_409(app, manager):
+    employee_id = add_employee(app, max_hours=8)
+    first = create(manager, start_time="08:00", end_time="14:00")
+    assert assign(manager, first, employee_id).status_code == 200
+
+    res = assign(manager, create(manager, start_time="14:00", end_time="18:00"), employee_id)
+    assert res.status_code == 409
+    assert res.get_json()["violations"] == [
+        "Shift would put the employee over their weekly limit (10 of 8 hours)."
+    ]
+
+
+def weekly_check(other_shifts, limit=20, day="2026-11-17"):
+    employee = {"active": True, "qualifications": [], "max_weekly_hours": limit}
+    shift = {"date": day, "start_time": "09:00", "end_time": "17:00"}
+    availability = [{"day_of_week": 1, "start_time": "08:00", "end_time": "18:00"}]
+    return constraints.check_assignment(
+        employee, shift, availability=availability, other_shifts=other_shifts
+    )
+
+
+def test_weekly_limit_allows_exactly_reaching_it():
+    monday = {"date": "2026-11-16", "start_time": "08:00", "end_time": "20:00"}
+    assert weekly_check([monday]) == []
+
+
+def test_weekly_limit_only_counts_the_same_week():
+    last_sunday = {"date": "2026-11-15", "start_time": "06:00", "end_time": "23:00"}
+    next_monday = {"date": "2026-11-23", "start_time": "06:00", "end_time": "23:00"}
+    assert weekly_check([last_sunday, next_monday]) == []
+
+    saturday = {"date": "2026-11-21", "start_time": "06:00", "end_time": "19:00"}
+    assert "weekly limit (21 of 20 hours)" in weekly_check([saturday])[0]
 
 
 def test_inactive_or_absent_employee_cannot_be_assigned(app, manager):
