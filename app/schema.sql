@@ -7,6 +7,9 @@
 -- children before parents.
 
 DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS recommendations;
+DROP TABLE IF EXISTS absences;
+DROP TABLE IF EXISTS shifts;
 DROP TABLE IF EXISTS availability;
 DROP TABLE IF EXISTS employees;
 
@@ -41,6 +44,38 @@ CREATE TABLE availability (
 --   shifts            (Lead Architect):     date, start/end time, required qualification, employee, status
 --   absences          (Lead Architect):     employee, date, reason
 --   recommendations   (Lead Architect):     shift, suggested employee, score, pending/approved/rejected
+-- Scheduling module: Lead Architect
+
+CREATE TABLE shifts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    start_time TEXT NOT NULL,
+    end_time TEXT NOT NULL,
+    required_qualification TEXT,
+    employee_id INTEGER,
+    status TEXT NOT NULL DEFAULT 'open'
+        CHECK (status IN ('open', 'assigned', 'cancelled')),
+    CHECK (start_time < end_time)
+);
+
+CREATE TABLE absences (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    reason TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE recommendations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    shift_id INTEGER NOT NULL,
+    employee_id INTEGER NOT NULL,
+    score REAL NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'approved', 'rejected')),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (shift_id) REFERENCES shifts(id)
+);
 
 -- Forecast training data, one row per day.
 DROP TABLE IF EXISTS staffing_history;

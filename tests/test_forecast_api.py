@@ -72,10 +72,14 @@ def test_forecast_defaults_to_seven_days_from_today(manager, history, scheduled)
     assert days[0]["date"] == date.today().isoformat()
 
 
-def test_forecast_without_scheduling_leaves_gap_empty(manager, history):
+def test_forecast_without_scheduling_leaves_gap_empty(manager, history, monkeypatch):
+    def not_implemented(*args):
+        raise NotImplementedError
+
+    monkeypatch.setattr(scheduling, "count_scheduled_staff_between", not_implemented)
+    monkeypatch.setattr(scheduling, "count_scheduled_staff", not_implemented)
     day = manager.get("/api/forecast?days=1").get_json()["days"][0]
-    if day["scheduled_staff"] is not None:
-        pytest.skip("scheduling.count_scheduled_staff is implemented now")
+    assert day["scheduled_staff"] is None
     assert day["gap"] is None
     assert day["predicted_staff_needed"] >= 1
 
