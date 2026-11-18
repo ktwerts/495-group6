@@ -106,7 +106,7 @@ qualification strings are matched.
 
 | Method | Path | Role | Body / query | Returns | Status |
 |--------|------|------|--------------|---------|--------|
-| GET | `/api/shifts` | M | — | List of shifts | Implemented (200) |
+| GET | `/api/shifts?start=YYYY-MM-DD&end=YYYY-MM-DD` | M | `start` and `end` optional, inclusive | List of shifts, ordered by date and start time | Implemented (200) |
 | POST | `/api/shifts` | M | `{date, start_time, end_time, required_qualification}` | Created open shift | Implemented (201) |
 
 ### Shift object
@@ -144,7 +144,7 @@ New shifts are initially open and have no assigned employee.
 
 ### Error responses
 
-- 400: Missing fields, invalid dates or times, or invalid JSON.
+- 400: Missing fields, invalid dates or times, invalid JSON, or a `start` filter after `end`.
 - 401: User is not logged in.
 - 403: User does not have manager permissions.
 

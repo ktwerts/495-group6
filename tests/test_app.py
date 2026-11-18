@@ -1,6 +1,7 @@
 import pytest
 
 from app import create_app
+from app.scheduling import service as scheduling
 
 
 def test_health(client):
@@ -51,11 +52,15 @@ def test_wrong_method_returns_json_405(client):
     assert "error" in res.get_json()
 
 
-def test_unimplemented_stub_returns_json_501(manager):
+def test_unimplemented_stub_returns_json_501(manager, monkeypatch):
     """Stubs raise NotImplementedError; the API reports that clearly instead of crashing."""
+
+    def stub(*args):
+        raise NotImplementedError("scheduling.list_shifts")
+
+    monkeypatch.setattr(scheduling, "list_shifts", stub)
     res = manager.get("/api/shifts")
-    if res.status_code != 501:
-        pytest.skip("scheduling.list_shifts is implemented now")
+    assert res.status_code == 501
     assert "Not implemented yet" in res.get_json()["error"]
 
 

@@ -7,6 +7,36 @@ import pytest
 
 from app.scheduling import constraints
 
+SHIFT = {
+    "date": "2026-11-17",
+    "start_time": "09:00",
+    "end_time": "17:00",
+    "required_qualification": "Cashier",
+}
+
+
+def test_shift_routes_are_manager_only(client, staff):
+    assert staff.get("/api/shifts").status_code == 403
+    assert staff.post("/api/shifts", json=SHIFT).status_code == 403
+    staff.post("/api/auth/logout")
+    assert client.get("/api/shifts").status_code == 401
+    assert client.post("/api/shifts", json=SHIFT).status_code == 401
+
+
+def test_create_shift_requires_json_object(manager):
+    assert manager.post("/api/shifts", json=["not", "an", "object"]).status_code == 400
+
+
+def test_list_shifts_filters_by_date(manager):
+    for day in ("2026-11-16", "2026-11-17", "2026-11-18"):
+        assert manager.post("/api/shifts", json={**SHIFT, "date": day}).status_code == 201
+
+    res = manager.get("/api/shifts?start=2026-11-17&end=2026-11-18")
+    assert [shift["date"] for shift in res.get_json()] == ["2026-11-17", "2026-11-18"]
+    assert manager.get("/api/shifts?start=2026-11-18&end=2026-11-17").status_code == 400
+    assert manager.get("/api/shifts?start=11/17/2026").status_code == 400
+
+
 TODO = pytest.mark.skip(reason="TODO: implement scheduling module")
 
 
