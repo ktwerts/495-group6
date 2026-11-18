@@ -16,7 +16,9 @@ Tips:
 from datetime import date, datetime
 
 from app.db import get_db
-from app.errors import ValidationError
+from app.employees import service as employees
+from app.errors import ConflictError, NotFoundError, ValidationError
+from app.scheduling import constraints
 
 
 def list_shifts(start: str | None = None, end: str | None = None) -> list[dict]:
@@ -59,21 +61,19 @@ def list_shifts(start: str | None = None, end: str | None = None) -> list[dict]:
 
 
 def create_shift(data: dict) -> dict:
-    """Create an open shift without an assigned employee."""
+    """Create an open shift; assign an employee afterwards with assign_shift()."""
 
     if not isinstance(data, dict):
         raise ValidationError("Shift data must be an object.")
 
-    required_fields = [
-        "date",
-        "start_time",
-        "end_time",
-        "required_qualification",
-    ]
-
-    for field in required_fields:
+    for field in ("date", "start_time", "end_time"):
         if not isinstance(data.get(field), str) or not data[field].strip():
             raise ValidationError(f"{field} is required.")
+
+    qualification = data.get("required_qualification")
+    if qualification is not None and not isinstance(qualification, str):
+        raise ValidationError("required_qualification must be text.")
+    qualification = (qualification or "").strip() or None
 
     try:
         shift_date = date.fromisoformat(data["date"])
@@ -92,7 +92,9 @@ def create_shift(data: dict) -> dict:
         raise ValidationError("End time must be after start time.")
 
     if data.get("employee_id") is not None:
-        raise ValidationError("Employee assignments are not implemented yet.")
+        raise ValidationError(
+            "Create the shift first, then assign it with /api/shifts/<id>/assign."
+        )
 
     db = get_db()
 
@@ -107,18 +109,75 @@ def create_shift(data: dict) -> dict:
             data["date"],
             start.strftime("%H:%M"),
             end.strftime("%H:%M"),
-            data["required_qualification"].strip(),
+            qualification,
         ),
     )
 
     db.commit()
+    return _get_shift(cursor.lastrowid)
 
-    row = db.execute(
-        "SELECT * FROM shifts WHERE id = ?",
-        (cursor.lastrowid,),
-    ).fetchone()
 
+def _get_shift(shift_id: int) -> dict:
+    row = get_db().execute("SELECT * FROM shifts WHERE id = ?", (shift_id,)).fetchone()
+    if row is None:
+        raise NotFoundError(f"Shift {shift_id} not found")
     return dict(row)
+
+
+def _get_employee(employee_id: int) -> dict:
+    for employee in employees.list_employees(include_inactive=True):
+        if employee["id"] == employee_id:
+            return employee
+    raise NotFoundError(f"Employee {employee_id} not found")
+
+
+def assign_shift(shift_id: int, employee_id: int) -> dict:
+    """Assign an employee to a shift, or raise ConflictError listing the rules it breaks."""
+    shift = _get_shift(shift_id)
+    if shift["status"] == "cancelled":
+        raise ConflictError("Shift can't be assigned", ["Shift is cancelled."])
+    employee = _get_employee(employee_id)
+
+    db = get_db()
+    other_shifts = db.execute(
+        """
+        SELECT date, start_time, end_time FROM shifts
+        WHERE employee_id = ? AND status = 'assigned' AND date = ? AND id != ?
+        """,
+        (employee_id, shift["date"], shift_id),
+    ).fetchall()
+    absences = db.execute(
+        "SELECT date FROM absences WHERE employee_id = ? AND date = ?",
+        (employee_id, shift["date"]),
+    ).fetchall()
+
+    violations = constraints.check_assignment(
+        employee,
+        shift,
+        availability=employees.get_availability(employee_id),
+        other_shifts=[dict(row) for row in other_shifts],
+        absences=[dict(row) for row in absences],
+    )
+    if violations:
+        raise ConflictError(f"{employee['name']} can't work this shift", violations)
+
+    db.execute(
+        "UPDATE shifts SET employee_id = ?, status = 'assigned' WHERE id = ?",
+        (employee_id, shift_id),
+    )
+    db.commit()
+    return _get_shift(shift_id)
+
+
+def unassign_shift(shift_id: int) -> dict:
+    """Remove the employee from a shift and reopen it."""
+    shift = _get_shift(shift_id)
+    if shift["status"] == "cancelled":
+        raise ConflictError("Shift can't be reopened", ["Shift is cancelled."])
+    db = get_db()
+    db.execute("UPDATE shifts SET employee_id = NULL, status = 'open' WHERE id = ?", (shift_id,))
+    db.commit()
+    return _get_shift(shift_id)
 
 
 def count_scheduled_staff(on_date: str) -> int:

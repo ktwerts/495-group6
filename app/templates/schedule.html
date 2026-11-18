@@ -2,21 +2,156 @@
 {% block title %}Schedule · ShiftWise AI{% endblock %}
 {% block content %}
 <h1>Schedule</h1>
-<p class="muted">Owner: Lead Architect</p>
+<p class="lead">Create shifts and assign employees. Assignments are checked against availability,
+qualifications, overlapping shifts and absences.</p>
 
-{#
-  TODO:
-  - List upcoming shifts from /api/shifts and show which ones are open
-  - Create a shift; report an absence
-  - "Find cover" on an open shift -> show ranked replacements -> manager approves
-  Use the helpers in static/js/app.js (api, esc, formData, showMessage, showError).
-#}
-<div id="shifts"></div>
+<form id="shift-form" class="form inline">
+  <label>Date <input name="date" type="date" required></label>
+  <label>Start <input name="start_time" type="time" required></label>
+  <label>End <input name="end_time" type="time" required></label>
+  <label>Qualification <input name="required_qualification" maxlength="100" placeholder="optional"></label>
+  <button class="btn" type="submit">Add shift</button>
+</form>
+
+<form id="range-form" class="form inline">
+  <label>Show from <input id="range-start" type="date" required></label>
+  <label>to <input id="range-end" type="date" required></label>
+  <button class="btn secondary" type="submit">Show</button>
+</form>
+
+<p id="shifts-status" role="status">Loading shifts…</p>
+<table id="shifts-table" hidden>
+  <thead>
+    <tr>
+      <th scope="col">Date</th>
+      <th scope="col">Time</th>
+      <th scope="col">Qualification</th>
+      <th scope="col">Employee</th>
+      <th scope="col">Status</th>
+      <th scope="col">Assign</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
 {% endblock %}
 {% block scripts %}
 <script>
-  api('/api/shifts')
-    .then(shifts => { document.getElementById('shifts').textContent = `${shifts.length} shifts`; })
-    .catch(showError);
+const shiftForm = document.getElementById('shift-form');
+const rangeForm = document.getElementById('range-form');
+const rangeStart = document.getElementById('range-start');
+const rangeEnd = document.getElementById('range-end');
+const shiftsStatus = document.getElementById('shifts-status');
+const shiftsTable = document.getElementById('shifts-table');
+
+const dayLabel = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+let employees = [];
+
+function isoDate(offsetDays) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function employeeName(id) {
+  return employees.find(e => e.id === id)?.name ?? '—';
+}
+
+function button(text, className, onClick) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = className;
+  btn.textContent = text;
+  btn.addEventListener('click', onClick);
+  return btn;
+}
+
+function assignControls(shift) {
+  const wrap = document.createElement('div');
+  wrap.className = 'form inline';
+  if (shift.status === 'assigned') {
+    wrap.append(button('Unassign', 'btn small secondary', () => updateShift(shift, 'unassign')));
+    return wrap;
+  }
+  const select = document.createElement('select');
+  select.setAttribute('aria-label', `Employee for shift ${shift.id}`);
+  select.add(new Option('Choose employee', ''));
+  employees.forEach(e => select.add(new Option(e.name, e.id)));
+  wrap.append(select, button('Assign', 'btn small', () => {
+    if (!select.value) return showError(new Error('Choose an employee first.'));
+    updateShift(shift, 'assign', { employee_id: Number(select.value) });
+  }));
+  return wrap;
+}
+
+function renderShifts(shifts) {
+  const body = shiftsTable.tBodies[0];
+  body.replaceChildren();
+  for (const shift of shifts) {
+    const row = body.insertRow();
+    row.insertCell().textContent = dayLabel.format(new Date(`${shift.date}T00:00`));
+    row.insertCell().textContent = `${shift.start_time}–${shift.end_time}`;
+    row.insertCell().textContent = shift.required_qualification ?? '—';
+    row.insertCell().textContent = employeeName(shift.employee_id);
+    const status = row.insertCell();
+    status.textContent = shift.status;
+    status.className = shift.status === 'open' ? 'bad' : shift.status === 'assigned' ? 'good' : 'muted';
+    row.insertCell().append(assignControls(shift));
+  }
+  const open = shifts.filter(s => s.status === 'open').length;
+  shiftsStatus.textContent = shifts.length
+    ? `${shifts.length} shifts, ${open} open.`
+    : 'No shifts in this range.';
+  shiftsTable.hidden = shifts.length === 0;
+}
+
+async function loadShifts() {
+  const query = new URLSearchParams({ start: rangeStart.value, end: rangeEnd.value });
+  try {
+    renderShifts(await api(`/api/shifts?${query}`));
+  } catch (error) {
+    shiftsStatus.textContent = '';
+    shiftsTable.hidden = true;
+    showError(error);
+  }
+}
+
+async function updateShift(shift, action, body) {
+  try {
+    await api(`/api/shifts/${shift.id}/${action}`, { method: 'POST', body });
+    showMessage(action === 'assign' ? 'Shift assigned.' : 'Shift reopened.');
+    await loadShifts();
+  } catch (error) {
+    showError(error);
+  }
+}
+
+shiftForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const button = shiftForm.querySelector('button');
+  button.disabled = true;
+  try {
+    await api('/api/shifts', { method: 'POST', body: formData(shiftForm) });
+    showMessage('Shift added.');
+    shiftForm.reset();
+    await loadShifts();
+  } catch (error) {
+    showError(error);
+  } finally {
+    button.disabled = false;
+  }
+});
+
+rangeForm.addEventListener('submit', event => {
+  event.preventDefault();
+  loadShifts();
+});
+
+rangeStart.value = isoDate(0);
+rangeEnd.value = isoDate(6);
+api('/api/employees')
+  .then(list => { employees = list; })
+  .catch(showError)
+  .finally(loadShifts);
 </script>
 {% endblock %}

@@ -5,6 +5,7 @@ The constraint functions are pure, so test them directly without the database.
 
 import pytest
 
+from app.db import get_db
 from app.scheduling import constraints
 
 SHIFT = {
@@ -131,9 +132,149 @@ def test_single_digit_time_overlap():
     assert constraints.times_overlap("9:00", "9:30", "09:15", "09:45")
 
 
-@TODO
-def test_conflicting_assignment_returns_409(manager):
-    """Assign the same employee to overlapping shifts and expect 409."""
+def add_employee(app, name="Alex Chen", qualifications='["cashier"]', active=1):
+    """Employee available Tuesdays 08:00-18:00 (2026-11-17 is a Tuesday)."""
+    with app.app_context():
+        db = get_db()
+        employee_id = db.execute(
+            "INSERT INTO employees (name, position, qualifications, max_weekly_hours, active)"
+            " VALUES (?, 'Cashier', ?, 40, ?)",
+            (name, qualifications, active),
+        ).lastrowid
+        db.execute(
+            "INSERT INTO availability (employee_id, day_of_week, start_time, end_time)"
+            " VALUES (?, 1, '08:00', '18:00')",
+            (employee_id,),
+        )
+        db.commit()
+    return employee_id
+
+
+def create(manager, **changes):
+    res = manager.post("/api/shifts", json={**SHIFT, **changes})
+    assert res.status_code == 201
+    return res.get_json()["id"]
+
+
+def assign(manager, shift_id, employee_id):
+    return manager.post(f"/api/shifts/{shift_id}/assign", json={"employee_id": employee_id})
+
+
+def test_assign_shift_marks_it_assigned(app, manager):
+    employee_id = add_employee(app)
+    shift_id = create(manager)
+
+    res = assign(manager, shift_id, employee_id)
+    assert res.status_code == 200
+    assert res.get_json()["employee_id"] == employee_id
+    assert res.get_json()["status"] == "assigned"
+    assert manager.get("/api/shifts").get_json()[0]["status"] == "assigned"
+
+
+def test_qualification_match_ignores_case(app, manager):
+    employee_id = add_employee(app, qualifications='["cashier"]')
+    assert (
+        assign(manager, create(manager, required_qualification="CASHIER"), employee_id).status_code
+        == 200
+    )
+
+
+def test_shift_without_qualification_can_go_to_anyone_available(app, manager):
+    employee_id = add_employee(app, qualifications="[]")
+    assert (
+        assign(manager, create(manager, required_qualification=""), employee_id).status_code == 200
+    )
+
+
+def test_conflicting_assignment_returns_409(app, manager):
+    employee_id = add_employee(app)
+    assert assign(manager, create(manager), employee_id).status_code == 200
+
+    res = assign(manager, create(manager, start_time="12:00", end_time="15:00"), employee_id)
+    assert res.status_code == 409
+    assert "Employee already has an overlapping shift." in res.get_json()["violations"]
+
+
+@pytest.mark.parametrize(
+    ("changes", "violation"),
+    [
+        ({"date": "2026-11-18"}, "Employee is not available for the entire shift."),
+        ({"start_time": "07:00"}, "Employee is not available for the entire shift."),
+        (
+            {"required_qualification": "forklift"},
+            "Employee does not have the required qualification.",
+        ),
+    ],
+)
+def test_assignment_breaking_a_rule_returns_409(app, manager, changes, violation):
+    employee_id = add_employee(app)
+    res = assign(manager, create(manager, **changes), employee_id)
+    assert res.status_code == 409
+    assert violation in res.get_json()["violations"]
+    assert manager.get("/api/shifts").get_json()[0]["status"] == "open"
+
+
+def test_inactive_or_absent_employee_cannot_be_assigned(app, manager):
+    inactive = add_employee(app, name="Former", active=0)
+    absent = add_employee(app, name="Away")
+    with app.app_context():
+        get_db().execute(
+            "INSERT INTO absences (employee_id, date) VALUES (?, '2026-11-17')", (absent,)
+        )
+        get_db().commit()
+
+    assert (
+        "Employee is inactive."
+        in assign(manager, create(manager), inactive).get_json()["violations"]
+    )
+    assert (
+        "Employee has a reported absence on this date."
+        in assign(manager, create(manager), absent).get_json()["violations"]
+    )
+
+
+def test_assign_unknown_shift_or_employee_returns_404(app, manager):
+    employee_id = add_employee(app)
+    assert assign(manager, 999, employee_id).status_code == 404
+    assert assign(manager, create(manager), 999).status_code == 404
+
+
+@pytest.mark.parametrize("body", [{}, {"employee_id": "abc"}, {"employee_id": 0}, ["x"]])
+def test_assign_rejects_bad_body(manager, body):
+    shift_id = create(manager)
+    assert manager.post(f"/api/shifts/{shift_id}/assign", json=body).status_code == 400
+
+
+def test_unassign_reopens_shift(app, manager):
+    employee_id = add_employee(app)
+    shift_id = create(manager)
+    assign(manager, shift_id, employee_id)
+
+    res = manager.post(f"/api/shifts/{shift_id}/unassign")
+    assert res.status_code == 200
+    assert res.get_json()["status"] == "open"
+    assert res.get_json()["employee_id"] is None
+
+
+def test_cancelled_shift_cannot_be_assigned_or_reopened(app, manager):
+    employee_id = add_employee(app)
+    shift_id = create(manager)
+    with app.app_context():
+        get_db().execute("UPDATE shifts SET status = 'cancelled' WHERE id = ?", (shift_id,))
+        get_db().commit()
+    assert assign(manager, shift_id, employee_id).status_code == 409
+    assert manager.post(f"/api/shifts/{shift_id}/unassign").status_code == 409
+
+
+def test_create_shift_rejects_employee_id(manager):
+    assert manager.post("/api/shifts", json={**SHIFT, "employee_id": 1}).status_code == 400
+
+
+def test_assign_routes_are_manager_only(client, staff):
+    assert staff.post("/api/shifts/1/assign", json={"employee_id": 1}).status_code == 403
+    assert staff.post("/api/shifts/1/unassign").status_code == 403
+    staff.post("/api/auth/logout")
+    assert client.post("/api/shifts/1/assign", json={"employee_id": 1}).status_code == 401
 
 
 @TODO

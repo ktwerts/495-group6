@@ -60,7 +60,8 @@ def check_assignment(employee: dict, shift: dict, **context) -> list[str]:
     if isinstance(qualifications, str):
         qualifications = [q.strip() for q in qualifications.split(",")]
 
-    if required and required not in qualifications:
+    # Employees stores qualifications lowercase, so compare without case.
+    if required and required.casefold() not in {q.casefold() for q in qualifications}:
         violations.append("Employee does not have the required qualification.")
 
     # Check employee availability.

@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify, render_template, request
 
 from app.auth.decorators import role_required
 from app.scheduling import service
-from app.validation import require_json
+from app.validation import parse_int, require_json
 
 bp = Blueprint("scheduling", __name__)
 
@@ -28,5 +28,19 @@ def create_shift():
     return jsonify(service.create_shift(data)), 201
 
 
-# TODO(Lead Architect): assign/unassign, report absence, recommend replacements,
+@bp.post("/api/shifts/<int:shift_id>/assign")
+@role_required("manager")
+def assign_shift(shift_id: int):
+    data = require_json(request.get_json(silent=True))
+    employee_id = parse_int(data.get("employee_id"), "employee_id", minimum=1)
+    return jsonify(service.assign_shift(shift_id, employee_id))
+
+
+@bp.post("/api/shifts/<int:shift_id>/unassign")
+@role_required("manager")
+def unassign_shift(shift_id: int):
+    return jsonify(service.unassign_shift(shift_id))
+
+
+# TODO(Lead Architect): report absence, recommend replacements,
 # and approve/reject a recommendation.

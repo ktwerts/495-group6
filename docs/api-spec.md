@@ -107,7 +107,9 @@ qualification strings are matched.
 | Method | Path | Role | Body / query | Returns | Status |
 |--------|------|------|--------------|---------|--------|
 | GET | `/api/shifts?start=YYYY-MM-DD&end=YYYY-MM-DD` | M | `start` and `end` optional, inclusive | List of shifts, ordered by date and start time | Implemented (200) |
-| POST | `/api/shifts` | M | `{date, start_time, end_time, required_qualification}` | Created open shift | Implemented (201) |
+| POST | `/api/shifts` | M | `{date, start_time, end_time, required_qualification?}` | Created open shift | Implemented (201) |
+| POST | `/api/shifts/{shift_id}/assign` | M | `{employee_id}` | Assigned shift | Implemented (200) |
+| POST | `/api/shifts/{shift_id}/unassign` | M | — | Reopened shift | Implemented (200) |
 
 ### Shift object
 
@@ -134,17 +136,43 @@ Required fields:
 - `date`: Date in YYYY-MM-DD format.
 - `start_time`: Start time in 24-hour format.
 - `end_time`: End time in 24-hour format.
-- `required_qualification`: Qualification required for the shift.
+
+Optional:
+- `required_qualification`: Qualification required for the shift. Leave it out (or blank)
+  for a shift anyone available can work. Matching ignores case.
 
 The API validates the required fields and ensures the end time
 comes after the start time.
 
 Successful creation returns HTTP 201 with the new shift.
-New shifts are initially open and have no assigned employee.
+New shifts are initially open and have no assigned employee. Sending `employee_id` here
+returns 400; assign the shift with the endpoint below instead.
+
+### Assigning a shift
+
+`POST /api/shifts/{shift_id}/assign` with `{"employee_id": 1}` runs the scheduling
+constraints below. If the employee can work the shift, it returns 200 with the shift,
+`employee_id` set and `status: "assigned"`. Assigned shifts are what
+`count_scheduled_staff()` counts for the forecast.
+
+If any rule is broken, nothing changes and it returns 409:
+
+```json
+{
+  "error": "Sam Rivera can't work this shift",
+  "violations": ["Employee is not available for the entire shift."]
+}
+```
+
+`POST /api/shifts/{shift_id}/unassign` removes the employee and sets the shift back to
+`open`. Both return 404 for an unknown shift or employee, and 409 for a cancelled shift.
 
 ### Error responses
 
-- 400: Missing fields, invalid dates or times, invalid JSON, or a `start` filter after `end`.
+- 400: Missing fields, invalid dates or times, invalid JSON, a `start` filter after `end`,
+  or a missing or invalid `employee_id`.
+- 404: Unknown shift or employee.
+- 409: The assignment breaks a scheduling rule (see `violations`).
 - 401: User is not logged in.
 - 403: User does not have manager permissions.
 
