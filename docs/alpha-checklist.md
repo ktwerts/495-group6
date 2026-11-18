@@ -28,12 +28,12 @@ Module: **Employees** (`app/employees/`) + UI pages
 
 Module: **Scheduling** (`app/scheduling/`) + system design
 
-- [ ] Design the `shifts`, `absences` and `recommendations` tables in `app/schema.sql`
-- [ ] Implement `constraints.py` (availability, qualification, overlap, and any rules you add)
+- [x] Design the `shifts`, `absences` and `recommendations` tables in `app/schema.sql`
+- [x] Implement `constraints.py` (availability, qualification, overlap, and any rules you add)
 - [ ] Implement `service.py` (shifts, absences, `count_scheduled_staff`, recommendations, manager approval)
-- [ ] Add the scheduling endpoints, and build `templates/schedule.html`
+- [x] Add the scheduling endpoints, and build `templates/schedule.html`
 - [ ] Show an employee their own shifts on the home page
-- [ ] Add a week of sample shifts to `app/seed.py`
+- [x] Add a week of sample shifts to `app/seed.py`
 - [ ] Un-skip and complete `tests/test_scheduling.py`, plus the recommendations benchmark in `tests/test_performance.py`
 - [ ] Keep `docs/architecture.md` (diagrams, module table, data model) current
 
@@ -87,8 +87,11 @@ Module: **Forecasting / AI** (`app/forecasting/`) + integration
    from the seed output or the value set in `SHIFTWISE_ADMIN_PASSWORD`.
 2. Forecast page: point out the model's error next to the baseline's, then the days marked
    "Short by N". Press **Retrain model** and show the metrics refresh.
-3. Schedule page: report an absence, find cover, approve: _TODO_
-4. Show a blocked conflicting assignment (409): _TODO_
+3. Schedule page: the seeded week shows open shifts in red. Assign Casey Morgan to today's
+   17:00-21:00 shift and show it turn green. Then open Forecast: today's scheduled count goes
+   up by one and its gap shrinks.
+4. Blocked assignment (409): try assigning Sam Rivera to a Tuesday shift. He's only available
+   on Mondays, so the page shows the violation and the shift stays open.
 5. Sign out, then sign in as `employee`. Use the generated employee password
    from the seed output or the value set in `SHIFTWISE_EMPLOYEE_PASSWORD`.
    Verify that the home page shows **My Shifts** and the **employee** role.

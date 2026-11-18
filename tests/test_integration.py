@@ -100,6 +100,37 @@ def test_model_beats_baseline_on_fixed_history(app, manager):
     assert metrics["mae"] < metrics["baseline_mae"]
 
 
+def test_assigning_a_shift_updates_the_forecast(seeded):
+    manager = login(seeded, "manager", ADMIN_PASSWORD)
+    today = date.today().isoformat()
+
+    def scheduled_today():
+        return manager.get(f"/api/forecast?start={today}&days=1").get_json()["days"][0]
+
+    seeded_shifts = manager.get(f"/api/shifts?start={today}&end={today}").get_json()
+    assigned = {s["employee_id"] for s in seeded_shifts if s["status"] == "assigned"}
+    before = scheduled_today()
+    assert before["scheduled_staff"] == len(assigned)
+
+    newcomer = manager.post("/api/employees", json={"name": "Casey", "position": "Host"})
+    weekday = date.today().weekday()
+    manager.post(
+        f"/api/employees/{newcomer.get_json()['id']}/availability",
+        json={"day_of_week": weekday, "start_time": "06:00", "end_time": "22:00"},
+    )
+    shift = manager.post(
+        "/api/shifts", json={"date": today, "start_time": "18:00", "end_time": "21:00"}
+    ).get_json()
+    res = manager.post(
+        f"/api/shifts/{shift['id']}/assign", json={"employee_id": newcomer.get_json()["id"]}
+    )
+    assert res.status_code == 200, res.get_json()
+
+    after = scheduled_today()
+    assert after["scheduled_staff"] == before["scheduled_staff"] + 1
+    assert after["gap"] == before["gap"] - 1
+
+
 @pytest.mark.skip(reason="TODO: needs absences, recommendations and approval from Scheduling")
 def test_approved_replacement_closes_forecast_gap(seeded):
     """Owners: Lead Architect + Integration Lead.
