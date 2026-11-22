@@ -42,5 +42,13 @@ def unassign_shift(shift_id: int):
     return jsonify(service.unassign_shift(shift_id))
 
 
+@bp.post("/api/absences")
+@role_required("manager")
+def report_absence():
+    data = require_json(request.get_json(silent=True))
+    employee_id = parse_int(data.get("employee_id"), "employee_id", minimum=1)
+    return jsonify(service.report_absence(employee_id, data.get("date"))), 201
+
+
 # TODO(Lead Architect): report absence, recommend replacements,
 # and approve/reject a recommendation.

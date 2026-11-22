@@ -7,6 +7,7 @@ import pytest
 
 from app.db import get_db
 from app.scheduling import constraints
+from app.scheduling import service as scheduling
 
 SHIFT = {
     "date": "2026-11-17",
@@ -312,6 +313,102 @@ def test_assign_routes_are_manager_only(client, staff):
     assert client.post("/api/shifts/1/assign", json={"employee_id": 1}).status_code == 401
 
 
-@TODO
+def test_reporting_absence_reopens_shift_and_updates_staff_count(app, manager):
+    created = manager.post("/api/employees", json={"name": "Alex Chen", "position": "Cook"})
+    assert created.status_code == 201
+    employee_id = created.get_json()["id"]
+
+    availability = manager.post(
+        f"/api/employees/{employee_id}/availability",
+        json={"day_of_week": 1, "start_time": "09:00", "end_time": "17:00"},
+    )
+    assert availability.status_code == 201
+
+    created_shift = manager.post(
+        "/api/shifts",
+        json={
+            "date": "2026-11-17",
+            "start_time": "09:00",
+            "end_time": "17:00",
+        },
+    )
+    assert created_shift.status_code == 201
+    shift_id = created_shift.get_json()["id"]
+
+    assigned = manager.post(
+        f"/api/shifts/{shift_id}/assign",
+        json={"employee_id": employee_id},
+    )
+    assert assigned.status_code == 200
+
+    with app.app_context():
+        assert scheduling.count_scheduled_staff("2026-11-17") == 1
+
+    absence = manager.post(
+        "/api/absences",
+        json={"employee_id": employee_id, "date": "2026-11-17"},
+    )
+    assert absence.status_code == 201
+
+    shifts = manager.get("/api/shifts?start=2026-11-17&end=2026-11-17").get_json()
+    shift = next(item for item in shifts if item["id"] == shift_id)
+    assert shift["status"] == "open"
+    assert shift["employee_id"] is None
+
+    with app.app_context():
+        assert scheduling.count_scheduled_staff("2026-11-17") == 0
+        recorded = (
+            get_db()
+            .execute(
+                "SELECT employee_id, date FROM absences WHERE employee_id = ?",
+                (employee_id,),
+            )
+            .fetchone()
+        )
+        assert recorded is not None
+        assert recorded["date"] == "2026-11-17"
+
+    reassigned = manager.post(
+        f"/api/shifts/{shift_id}/assign",
+        json={"employee_id": employee_id},
+    )
+    assert reassigned.status_code == 409
+    assert "Employee has a reported absence on this date." in (reassigned.get_json()["violations"])
+
+
+def test_absence_route_requires_manager(client, staff):
+    payload = {"employee_id": 1, "date": "2026-11-17"}
+
+    assert staff.post("/api/absences", json=payload).status_code == 403
+
+    staff.post("/api/auth/logout")
+    assert client.post("/api/absences", json=payload).status_code == 401
+
+
+def test_absence_rejects_unknown_employee(manager):
+    response = manager.post(
+        "/api/absences",
+        json={"employee_id": 999999, "date": "2026-11-17"},
+    )
+
+    assert response.status_code == 404
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        [],
+        {"date": "2026-11-17"},
+        {"employee_id": 1},
+        {"employee_id": 1, "date": "11/17/2026"},
+    ],
+)
+def test_absence_rejects_invalid_input(manager, payload):
+    response = manager.post("/api/absences", json=payload)
+
+    assert response.status_code == 400
+
+
+@pytest.mark.skip(reason="TODO")
 def test_absence_opens_shift_and_recommendations_exclude_absent(manager):
     """Report absence, reopen shift, and exclude absent employee."""

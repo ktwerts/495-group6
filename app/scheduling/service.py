@@ -217,6 +217,36 @@ def count_scheduled_staff_between(start: str, end: str) -> dict[str, int]:
     raise NotImplementedError("scheduling.count_scheduled_staff_between")
 
 
+def report_absence(employee_id: int, on_date: str) -> dict:
+    """Record a full-day absence and reopen the employee's assigned shifts."""
+    try:
+        parsed_date = date.fromisoformat(on_date)
+        if parsed_date.isoformat() != on_date:
+            raise ValueError()
+    except (TypeError, ValueError):
+        raise ValidationError("Date must use YYYY-MM-DD format.") from None
+
+    _get_employee(employee_id)
+    db = get_db()
+
+    with db:
+        cursor = db.execute(
+            "INSERT INTO absences (employee_id, date) VALUES (?, ?)",
+            (employee_id, on_date),
+        )
+        absence_id = cursor.lastrowid
+        db.execute(
+            """
+            UPDATE shifts
+            SET employee_id = NULL, status = 'open'
+            WHERE employee_id = ? AND date = ? AND status = 'assigned'
+            """,
+            (employee_id, on_date),
+        )
+
+    return {"id": absence_id, "employee_id": employee_id, "date": on_date}
+
+
 def recommend_replacements(shift_id: int, limit: int = 3) -> list[dict]:
     """Rank employees who could legally cover an open shift (for manager approval)."""
     raise NotImplementedError("scheduling.recommend_replacements")

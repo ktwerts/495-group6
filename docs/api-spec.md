@@ -110,6 +110,13 @@ qualification strings are matched.
 | POST | `/api/shifts` | M | `{date, start_time, end_time, required_qualification?}` | Created open shift | Implemented (201) |
 | POST | `/api/shifts/{shift_id}/assign` | M | `{employee_id}` | Assigned shift | Implemented (200) |
 | POST | `/api/shifts/{shift_id}/unassign` | M | — | Reopened shift | Implemented (200) |
+| POST | `/api/absences` | M | `{employee_id, date}` | Recorded absence (201) | Implemented |
+
+`POST /api/absences` records a full-day absence for an existing employee. The date must use `YYYY-MM-DD` format. Recording the absence reopens all of that employee's assigned shifts on that date and clears their employee assignments in the same transaction. Subsequent assignment attempts for that employee on that date return `409`.
+
+A successful request returns `201` with `{id, employee_id, date}`.
+Invalid input returns `400`, an unknown employee returns `404`, and
+access requires a signed-in manager (`401` or `403` otherwise).
 
 ### Shift object
 
