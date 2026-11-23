@@ -248,5 +248,69 @@ def report_absence(employee_id: int, on_date: str) -> dict:
 
 
 def recommend_replacements(shift_id: int, limit: int = 3) -> list[dict]:
-    """Rank employees who could legally cover an open shift (for manager approval)."""
-    raise NotImplementedError("scheduling.recommend_replacements")
+    """Return eligible replacements without assigning anyone."""
+    shift = _get_shift(shift_id)
+    if shift["status"] != "open":
+        raise ConflictError("Replacement recommendations require an open shift")
+
+    db = get_db()
+    monday, sunday = constraints.week_of(shift["date"])
+    weekly_shifts = db.execute(
+        """
+        SELECT employee_id, date, start_time, end_time
+        FROM shifts
+        WHERE status = 'assigned' AND date BETWEEN ? AND ? AND id != ?
+        """,
+        (monday, sunday, shift_id),
+    ).fetchall()
+    absences = db.execute(
+        "SELECT employee_id, date FROM absences WHERE date = ?",
+        (shift["date"],),
+    ).fetchall()
+
+    shifts_by_employee = {}
+    for row in weekly_shifts:
+        shifts_by_employee.setdefault(row["employee_id"], []).append(dict(row))
+
+    absences_by_employee = {}
+    for row in absences:
+        absences_by_employee.setdefault(row["employee_id"], []).append(dict(row))
+
+    candidates = []
+    for employee in employees.list_employees():
+        employee_id = employee["id"]
+        other_shifts = shifts_by_employee.get(employee_id, [])
+        violations = constraints.check_assignment(
+            employee,
+            shift,
+            availability=employee["availability"],
+            other_shifts=other_shifts,
+            absences=absences_by_employee.get(employee_id, []),
+        )
+        if not violations:
+            candidates.append(
+                {
+                    "employee_id": employee_id,
+                    "name": employee["name"],
+                    "scheduled_hours": sum(
+                        constraints.shift_hours(existing) for existing in other_shifts
+                    ),
+                }
+            )
+
+    candidates.sort(key=lambda candidate: (candidate["scheduled_hours"], candidate["employee_id"]))
+    return candidates[:limit]
+
+
+def approve_replacement(shift_id: int, employee_id: int) -> dict:
+    """Approve eligible replacement coverage while locking concurrent writers."""
+    db = get_db()
+    with db:
+        db.execute("BEGIN IMMEDIATE")
+        shift = _get_shift(shift_id)
+        if shift["status"] != "open":
+            raise ConflictError("Replacement approval requires an open shift")
+
+        return assign_shift(shift_id, employee_id)
+
+    return assign_shift(shift_id, employee_id)

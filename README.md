@@ -7,10 +7,10 @@ and a manager approves the change before it takes effect.
 
 **Stack:** Python 3.11+ · Flask · SQLite · scikit-learn · HTML/CSS/JavaScript · GitHub Actions
 
-> **Status: Alpha release.** Employees, Scheduling and the AI staffing forecast work end to
-> end on seeded demo data. Absences, replacement recommendations and manager approval are the
-> next milestone (see [known limitations](#known-limitations)).
-
+> **Status: Alpha revision.** Employee management, shift assignment, and AI
+> forecasting work with seeded demo data. Managers can record full-day absences,
+> find eligible replacements, and approve coverage. Integration tests verify that
+> absences and replacement approvals update Forecasting's scheduled staffing counts.
 ## Team roles
 
 | Role | Owner | Module | Docs |
@@ -25,7 +25,7 @@ and a manager approves the change before it takes effect.
 |--------|------------|
 | **Auth** | Login, hashed passwords, manager and employee roles. Manager pages and APIs return 403 for employees |
 | **Employees** | List and add employees, record weekly availability (overlapping slots are rejected) |
-| **Scheduling** | Create shifts, assign or unassign employees. Every assignment is checked for availability, qualification, overlapping shifts, absences and inactive employees; a broken rule returns 409 with the reasons |
+| **Scheduling** | Create, assign, and unassign shifts; record full-day absences; find eligible replacements; approve coverage. Assignment and approval enforce availability, qualifications, overlapping shifts, absences, active status, and weekly-hour limits. Rule violations return 409. |
 | **Forecasting (AI)** | A scikit-learn random forest predicts staff needed per day, is scored against a weekday-average baseline, and compares each day with the staff actually scheduled. The Forecast page shows the gaps and can retrain the model |
 
 How the modules connect: Scheduling asks Employees for availability before it assigns anyone,
@@ -101,7 +101,6 @@ and every endpoint is documented in the [API specification](docs/api-spec.md).
 These are tracked with impact and mitigation plans in the
 [technical debt log](docs/technical-debt.md):
 
-- Absences, replacement recommendations and manager approval aren't built yet (TD-9).
 - The model trains on synthetic history, so its accuracy shows the pipeline works, not
   real-world accuracy (TD-3).
 - No login rate limiting yet (TD-1).

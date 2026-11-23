@@ -39,9 +39,6 @@ def test_list_shifts_filters_by_date(manager):
     assert manager.get("/api/shifts?start=11/17/2026").status_code == 400
 
 
-TODO = pytest.mark.skip(reason="TODO: implement scheduling module")
-
-
 def test_times_overlap():
     assert constraints.times_overlap("09:00", "12:00", "11:00", "13:00")
     assert not constraints.times_overlap("09:00", "12:00", "12:00", "15:00")
@@ -409,6 +406,184 @@ def test_absence_rejects_invalid_input(manager, payload):
     assert response.status_code == 400
 
 
-@pytest.mark.skip(reason="TODO")
-def test_absence_opens_shift_and_recommendations_exclude_absent(manager):
-    """Report absence, reopen shift, and exclude absent employee."""
+def test_absence_opens_shift_and_recommendations_exclude_absent(app, manager):
+    absent_id = add_employee(app, name="Alex Chen")
+    replacement_id = add_employee(app, name="Sam Rivera")
+    add_employee(app, name="Inactive Employee", active=0)
+    add_employee(app, name="Unqualified Employee", qualifications="[]")
+
+    shift_id = create(manager)
+    assert assign(manager, shift_id, absent_id).status_code == 200
+
+    absence = manager.post(
+        "/api/absences",
+        json={"employee_id": absent_id, "date": SHIFT["date"]},
+    )
+    assert absence.status_code == 201
+
+    response = manager.get(f"/api/shifts/{shift_id}/recommendations")
+
+    assert response.status_code == 200
+    recommendations = response.get_json()
+    assert [item["employee_id"] for item in recommendations] == [replacement_id]
+
+    shifts = manager.get("/api/shifts").get_json()
+    shift = next(item for item in shifts if item["id"] == shift_id)
+    assert shift["status"] == "open"
+    assert shift["employee_id"] is None
+
+
+def test_recommendations_exclude_unavailable_busy_and_over_limit_employees(app, manager):
+    available_id = add_employee(app, name="Available Employee")
+    busy_id = add_employee(app, name="Busy Employee")
+    add_employee(app, name="Over Limit Employee", max_hours=4)
+    unavailable_id = add_employee(app, name="Unavailable Employee")
+
+    with app.app_context():
+        db = get_db()
+        db.execute(
+            "DELETE FROM availability WHERE employee_id = ?",
+            (unavailable_id,),
+        )
+        db.commit()
+
+    busy_shift_id = create(manager)
+    assert assign(manager, busy_shift_id, busy_id).status_code == 200
+    open_shift_id = create(manager)
+
+    response = manager.get(f"/api/shifts/{open_shift_id}/recommendations")
+
+    assert response.status_code == 200
+    assert [item["employee_id"] for item in response.get_json()] == [available_id]
+
+
+def test_manager_approval_assigns_replacement_and_restores_staff_count(app, manager):
+    absent_id = add_employee(app, name="Alex Chen")
+    replacement_id = add_employee(app, name="Sam Rivera")
+    shift_id = create(manager)
+    assert assign(manager, shift_id, absent_id).status_code == 200
+
+    absence = manager.post(
+        "/api/absences",
+        json={"employee_id": absent_id, "date": SHIFT["date"]},
+    )
+    assert absence.status_code == 201
+
+    recommendations = manager.get(f"/api/shifts/{shift_id}/recommendations")
+    assert recommendations.status_code == 200
+    assert replacement_id in [item["employee_id"] for item in recommendations.get_json()]
+
+    with app.app_context():
+        assert scheduling.count_scheduled_staff(SHIFT["date"]) == 0
+
+    approved = manager.post(
+        f"/api/shifts/{shift_id}/recommendations/approve",
+        json={"employee_id": replacement_id},
+    )
+
+    assert approved.status_code == 200
+    shift = approved.get_json()
+    assert shift["employee_id"] == replacement_id
+    assert shift["status"] == "assigned"
+
+    with app.app_context():
+        assert scheduling.count_scheduled_staff(SHIFT["date"]) == 1
+
+
+def test_approval_rechecks_eligibility_and_preserves_existing_coverage(app, manager):
+    first_id = add_employee(app, name="Sam Rivera")
+    second_id = add_employee(app, name="Casey Morgan")
+    shift_id = create(manager)
+
+    recommended = manager.get(f"/api/shifts/{shift_id}/recommendations")
+    assert recommended.status_code == 200
+    assert first_id in [item["employee_id"] for item in recommended.get_json()]
+
+    absence = manager.post(
+        "/api/absences",
+        json={"employee_id": first_id, "date": SHIFT["date"]},
+    )
+    assert absence.status_code == 201
+
+    url = f"/api/shifts/{shift_id}/recommendations/approve"
+    rejected = manager.post(url, json={"employee_id": first_id})
+    assert rejected.status_code == 409
+
+    approved = manager.post(url, json={"employee_id": second_id})
+    assert approved.status_code == 200
+
+    repeated = manager.post(url, json={"employee_id": second_id})
+    assert repeated.status_code == 409
+
+    shifts = manager.get("/api/shifts").get_json()
+    shift = next(item for item in shifts if item["id"] == shift_id)
+    assert shift["employee_id"] == second_id
+    assert shift["status"] == "assigned"
+
+
+def test_no_eligible_replacement_returns_empty_list_and_leaves_shift_open(app, manager):
+    absent_id = add_employee(app, name="Alex Chen")
+    add_employee(app, name="Unqualified Employee", qualifications="[]")
+    shift_id = create(manager)
+    assert assign(manager, shift_id, absent_id).status_code == 200
+
+    absence = manager.post(
+        "/api/absences",
+        json={"employee_id": absent_id, "date": SHIFT["date"]},
+    )
+    assert absence.status_code == 201
+
+    response = manager.get(f"/api/shifts/{shift_id}/recommendations")
+
+    assert response.status_code == 200
+    assert response.get_json() == []
+
+    shifts = manager.get("/api/shifts").get_json()
+    shift = next(item for item in shifts if item["id"] == shift_id)
+    assert shift["status"] == "open"
+    assert shift["employee_id"] is None
+
+    with app.app_context():
+        assert scheduling.count_scheduled_staff(SHIFT["date"]) == 0
+
+
+@pytest.mark.parametrize(
+    ("method", "path", "payload"),
+    [
+        ("GET", "/api/shifts/1/recommendations", None),
+        (
+            "POST",
+            "/api/shifts/1/recommendations/approve",
+            {"employee_id": 1},
+        ),
+    ],
+)
+def test_replacement_routes_require_manager(client, staff, method, path, payload):
+    response = staff.open(path, method=method, json=payload)
+    assert response.status_code == 403
+
+    staff.post("/api/auth/logout")
+
+    response = client.open(path, method=method, json=payload)
+    assert response.status_code == 401
+
+
+def test_replacement_routes_reject_unknown_shift(manager):
+    recommendations = manager.get("/api/shifts/999999/recommendations")
+    assert recommendations.status_code == 404
+
+    approval = manager.post(
+        "/api/shifts/999999/recommendations/approve",
+        json={"employee_id": 1},
+    )
+    assert approval.status_code == 404
+
+
+@pytest.mark.parametrize("limit", ["0", "51", "invalid"])
+def test_recommendations_reject_invalid_limit(app, manager, limit):
+    add_employee(app)
+    shift_id = create(manager)
+
+    response = manager.get(f"/api/shifts/{shift_id}/recommendations?limit={limit}")
+
+    assert response.status_code == 400

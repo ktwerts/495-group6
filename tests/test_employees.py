@@ -10,8 +10,6 @@ import pytest
 from app.db import get_db
 from app.employees.service import get_availability
 
-TODO = pytest.mark.skip(reason="TODO: implement employees module")
-
 
 def test_create_employee(manager):
     response = manager.post("/api/employees", json={"name": "Sam", "position": "Cook"})
@@ -176,6 +174,9 @@ def test_availability_validation(manager, slot):
     assert response.status_code == 400
 
 
-@TODO
+@pytest.mark.skip(
+    reason="Deferred: Alpha provides manager-only employee management; "
+    "an employee self-service record endpoint is not implemented."
+)
 def test_employee_can_only_view_own_record(staff):
-    """An employee-role user gets 403 when viewing someone else's record."""
+    """Future self-service endpoint must restrict access to the employee's own record."""

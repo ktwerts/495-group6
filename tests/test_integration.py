@@ -131,10 +131,79 @@ def test_assigning_a_shift_updates_the_forecast(seeded):
     assert after["gap"] == before["gap"] - 1
 
 
-@pytest.mark.skip(reason="TODO: needs absences, recommendations and approval from Scheduling")
 def test_approved_replacement_closes_forecast_gap(seeded):
-    """Owners: Lead Architect + Integration Lead.
+    manager = login(seeded, "manager", ADMIN_PASSWORD)
+    day = date.today()
+    employee_ids = []
 
-    Report an absence -> shift opens -> recommend replacements -> manager approves ->
-    the forecast for that day shows one more scheduled staff member and a smaller gap.
-    """
+    for name in ("Workflow Alex", "Workflow Sam"):
+        created = manager.post("/api/employees", json={"name": name, "position": "Host"})
+        assert created.status_code == 201
+        employee_id = created.get_json()["id"]
+        employee_ids.append(employee_id)
+
+        availability = manager.post(
+            f"/api/employees/{employee_id}/availability",
+            json={
+                "day_of_week": day.weekday(),
+                "start_time": "06:00",
+                "end_time": "22:00",
+            },
+        )
+        assert availability.status_code == 201
+
+    absent_id, replacement_id = employee_ids
+    created_shift = manager.post(
+        "/api/shifts",
+        json={
+            "date": day.isoformat(),
+            "start_time": "18:00",
+            "end_time": "21:00",
+        },
+    )
+    assert created_shift.status_code == 201
+    shift_id = created_shift.get_json()["id"]
+
+    assigned = manager.post(
+        f"/api/shifts/{shift_id}/assign",
+        json={"employee_id": absent_id},
+    )
+    assert assigned.status_code == 200
+
+    def forecast_day():
+        response = manager.get(f"/api/forecast?start={day.isoformat()}&days=1")
+        assert response.status_code == 200
+        return response.get_json()["days"][0]
+
+    before = forecast_day()
+
+    absence = manager.post(
+        "/api/absences",
+        json={"employee_id": absent_id, "date": day.isoformat()},
+    )
+    assert absence.status_code == 201
+    after_absence = forecast_day()
+    assert after_absence["scheduled_staff"] == before["scheduled_staff"] - 1
+    assert after_absence["gap"] == before["gap"] + 1
+
+    recommendations = manager.get(f"/api/shifts/{shift_id}/recommendations?limit=50")
+    assert recommendations.status_code == 200
+    candidates = [item["employee_id"] for item in recommendations.get_json()]
+    assert replacement_id in candidates
+    assert absent_id not in candidates
+
+    after_recommendations = forecast_day()
+    assert after_recommendations["scheduled_staff"] == after_absence["scheduled_staff"]
+
+    approved = manager.post(
+        f"/api/shifts/{shift_id}/recommendations/approve",
+        json={"employee_id": replacement_id},
+    )
+    assert approved.status_code == 200
+    assert approved.get_json()["employee_id"] == replacement_id
+    assert approved.get_json()["status"] == "assigned"
+
+    after_approval = forecast_day()
+    assert after_approval["scheduled_staff"] == before["scheduled_staff"]
+    assert after_approval["gap"] == before["gap"]
+    assert after_approval["predicted_staff_needed"] == before["predicted_staff_needed"]
