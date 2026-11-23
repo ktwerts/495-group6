@@ -30,7 +30,7 @@ untested paths, simplified data models, and synthetic training data.
 | ID | Area | Original shortcut | Interest that was accruing | How it was mitigated | PR |
 |----|------|-------------------|----------------------------|----------------------|----|
 | TD-4 | forecasting | `seed_staffing_history()` assumed an empty table; a date already stored made the whole insert fail (found in peer review) | Re-seeding, or adding demo history to a database that already had some, would crash instead of filling the gaps | `save_history(skip_existing=True)` skips dates already stored and still rejects invalid values; seeding is now safe to run repeatedly. Covered by 5 new tests | staffing-history-table |
-| TD-2 | employees | Employee creation always assigned a fixed 40-hour weekly limit. | Part-time employees could receive assignments beyond their actual weekly capacity. | Managers can enter and edit validated weekly limits. Scheduling enforces the stored limit, and edits below assigned hours in current or future weeks return 409. API tests, Scheduling tests, and browser checks verify the behavior. | Pending weekly-hours PR |
+| TD-2 | employees | Employee creation always assigned a fixed 40-hour weekly limit. | Part-time employees could receive assignments beyond their actual weekly capacity. | Managers can enter and edit validated weekly limits. Scheduling enforces the stored limit, and edits below assigned hours in current or future weeks return 409. API tests, Scheduling tests, and browser checks verify the behavior. |https://github.com/ktwerts/495-group6/pull/12|
 | | | | | | |
 
 ## How to add an entry
