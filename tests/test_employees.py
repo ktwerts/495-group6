@@ -31,6 +31,25 @@ def test_create_employee(manager):
     assert employee in employee_list.get_json()
 
 
+def test_create_employee_saves_custom_weekly_hours(manager):
+    response = manager.post(
+        "/api/employees",
+        json={
+            "name": "Alex Chen",
+            "position": "Cook",
+            "max_weekly_hours": 20,
+        },
+    )
+
+    assert response.status_code == 201
+    employee = response.get_json()
+    assert employee["max_weekly_hours"] == 20
+
+    employees = manager.get("/api/employees").get_json()
+    saved = next(item for item in employees if item["id"] == employee["id"])
+    assert saved["max_weekly_hours"] == 20
+
+
 def test_create_employee_rejects_missing_name(manager):
     assert manager.post("/api/employees", json={"position": "Cook"}).status_code == 400
 
@@ -180,3 +199,90 @@ def test_availability_validation(manager, slot):
 )
 def test_employee_can_only_view_own_record(staff):
     """Future self-service endpoint must restrict access to the employee's own record."""
+
+
+@pytest.mark.parametrize(
+    "limit",
+    [0, -1, 169, True, None, "twenty", "20"],
+)
+def test_create_employee_rejects_invalid_weekly_hours(manager, limit):
+    response = manager.post(
+        "/api/employees",
+        json={
+            "name": "Alex Chen",
+            "position": "Cook",
+            "max_weekly_hours": limit,
+        },
+    )
+
+    assert response.status_code == 400
+    assert "max_weekly_hours" in response.get_json()["error"]
+    assert manager.get("/api/employees").get_json() == []
+
+
+def test_manager_can_update_employee_weekly_hours(manager):
+    created = manager.post(
+        "/api/employees",
+        json={"name": "Alex Chen", "position": "Cook"},
+    )
+    assert created.status_code == 201
+    employee_id = created.get_json()["id"]
+
+    response = manager.patch(
+        f"/api/employees/{employee_id}/weekly-hours",
+        json={"max_weekly_hours": 20},
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["max_weekly_hours"] == 20
+
+    employees = manager.get("/api/employees").get_json()
+    saved = next(employee for employee in employees if employee["id"] == employee_id)
+    assert saved["max_weekly_hours"] == 20
+    assert saved["name"] == "Alex Chen"
+    assert saved["position"] == "Cook"
+
+
+@pytest.mark.parametrize("limit", [0, -1, 169, True, None, "20"])
+def test_update_weekly_hours_rejects_invalid_limit(manager, limit):
+    created = manager.post(
+        "/api/employees",
+        json={
+            "name": "Alex Chen",
+            "position": "Cook",
+            "max_weekly_hours": 20,
+        },
+    )
+    assert created.status_code == 201
+    employee_id = created.get_json()["id"]
+
+    response = manager.patch(
+        f"/api/employees/{employee_id}/weekly-hours",
+        json={"max_weekly_hours": limit},
+    )
+
+    assert response.status_code == 400
+    assert "max_weekly_hours" in response.get_json()["error"]
+
+    employees = manager.get("/api/employees").get_json()
+    saved = next(employee for employee in employees if employee["id"] == employee_id)
+    assert saved["max_weekly_hours"] == 20
+
+
+def test_update_weekly_hours_requires_manager(client, staff):
+    url = "/api/employees/1/weekly-hours"
+    payload = {"max_weekly_hours": 20}
+
+    assert staff.patch(url, json=payload).status_code == 403
+
+    staff.post("/api/auth/logout")
+    assert client.patch(url, json=payload).status_code == 401
+
+
+def test_update_weekly_hours_rejects_unknown_employee(manager):
+    response = manager.patch(
+        "/api/employees/999999/weekly-hours",
+        json={"max_weekly_hours": 20},
+    )
+
+    assert response.status_code == 404

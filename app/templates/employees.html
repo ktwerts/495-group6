@@ -8,7 +8,17 @@
 
   <label for="employee-position">Position</label>
   <input id="employee-position" name="position" required maxlength="100">
-
+  <label for="employee-weekly-hours">Maximum weekly hours</label>
+  <input
+  id="employee-weekly-hours"
+  name="max_weekly_hours"
+  type="number"
+  min="0.01"
+  max="168"
+  step="0.01"
+  value="40"
+  required
+  >
   <button type="submit" disabled>Add employee</button>
 </form>
 <form id="add-availability-form">
@@ -44,6 +54,7 @@
       <th scope="col">Position</th>
       <th scope="col">Qualifications</th>
       <th scope="col">Availability</th>
+      <th scope="col">Weekly limit</th>
     </tr>
   </thead>
   <tbody></tbody>
@@ -76,6 +87,45 @@ function addEmployeeRow(employee) {
     const availability = { cell: row.insertCell(), slots: employee.availability };
   availabilityByEmployee.set(String(employee.id), availability);
   renderAvailability(availability);
+    const hoursCell = row.insertCell();
+  const hoursForm = document.createElement('form');
+  const hoursInput = document.createElement('input');
+  hoursInput.type = 'number';
+  hoursInput.min = '0.01';
+  hoursInput.max = '168';
+  hoursInput.step = '0.01';
+  hoursInput.required = true;
+  hoursInput.value = employee.max_weekly_hours;
+  hoursInput.setAttribute('aria-label', `Maximum weekly hours for ${employee.name}`);
+
+  const saveHoursButton = document.createElement('button');
+  saveHoursButton.type = 'submit';
+  saveHoursButton.textContent = 'Save hours';
+
+  hoursForm.append(hoursInput, saveHoursButton);
+  hoursCell.append(hoursForm);
+
+  hoursForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    saveHoursButton.disabled = true;
+    hoursInput.disabled = true;
+
+    try {
+      const updated = await api(`/api/employees/${employee.id}/weekly-hours`, {
+        method: 'PATCH',
+        body: { max_weekly_hours: Number(hoursInput.value) },
+      });
+      employee.max_weekly_hours = updated.max_weekly_hours;
+      hoursInput.value = updated.max_weekly_hours;
+      showMessage(`Weekly limit saved for ${employee.name}.`);
+    } catch (error) {
+      hoursInput.value = employee.max_weekly_hours;
+      showError(error);
+    } finally {
+      saveHoursButton.disabled = false;
+      hoursInput.disabled = false;
+    }
+  });
   employeeStatus.hidden = true;
   employeeTable.hidden = false;
   availabilityEmployee.add(new Option(employee.name, employee.id));
@@ -101,9 +151,12 @@ employeeForm.addEventListener('submit', async event => {
   addButton.disabled = true;
 
   try {
+    const data = formData(employeeForm);
+    data.max_weekly_hours = Number(data.max_weekly_hours);
+
     const employee = await api('/api/employees', {
       method: 'POST',
-      body: formData(employeeForm),
+      body: data,
     });
     addEmployeeRow(employee);
     employeeForm.reset();
