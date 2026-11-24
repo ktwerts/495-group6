@@ -87,9 +87,15 @@ Module: **Forecasting / AI** (`app/forecasting/`) + integration
    from the seed output or the value set in `SHIFTWISE_ADMIN_PASSWORD`.
 2. Forecast page: point out the model's error next to the baseline's, then the days marked
    "Short by N". Press **Retrain model** and show the metrics refresh.
-3. Schedule page: the seeded week shows open shifts in red. Assign Casey Morgan to today's
-   17:00-21:00 shift and show it turn green. Then open Forecast: today's scheduled count goes
-   up by one and its gap shrinks.
+3. Schedule page: select an assigned demo shift and record its full-day absence.
+   Verify that the employee's assigned shifts on that date reopen and Forecast
+   shows a reduced scheduled staffing count. Select **Find replacements** on an
+   open shift. If nobody qualifies, verify **No eligible replacements** appears
+   and the shift stays open. For a successful case, add two demo employees with
+   availability covering a new shift that has no required qualification. Assign
+   the first employee, record their absence, then find and approve the second
+   employee as replacement. Verify the shift becomes assigned, persists after
+   refresh, and Forecast's scheduled staffing count recovers.
 4. Blocked assignment (409): try assigning Sam Rivera to a Tuesday shift. He's only available
    on Mondays, so the page shows the violation and the shift stays open.
 5. Sign out, then sign in as `employee`. Use the generated employee password

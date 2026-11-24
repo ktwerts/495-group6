@@ -110,6 +110,28 @@ qualification strings are matched.
 | POST | `/api/shifts` | M | `{date, start_time, end_time, required_qualification?}` | Created open shift | Implemented (201) |
 | POST | `/api/shifts/{shift_id}/assign` | M | `{employee_id}` | Assigned shift | Implemented (200) |
 | POST | `/api/shifts/{shift_id}/unassign` | M | — | Reopened shift | Implemented (200) |
+| POST | `/api/absences` | M | `{employee_id, date}` | Recorded absence (201) | Implemented |
+| GET | `/api/shifts/{shift_id}/recommendations` | M | Optional `limit`, 1–50; default 3 | Eligible replacements (200) | Implemented |
+| POST | `/api/shifts/{shift_id}/recommendations/approve` | M | `{employee_id}` | Assigned shift (200) | Implemented |
+
+`POST /api/absences` records a full-day absence for an existing employee. The date must use `YYYY-MM-DD` format. Recording the absence reopens all of that employee's assigned shifts on that date and clears their employee assignments in the same transaction. Subsequent assignment attempts for that employee on that date return `409`.
+
+A successful request returns `201` with `{id, employee_id, date}`.
+Invalid input returns `400`, an unknown employee returns `404`, and
+access requires a signed-in manager (`401` or `403` otherwise).
+
+Replacement recommendations require an open shift. Candidates must be active,
+qualified, available for the entire shift, free of overlapping assignments and
+reported absences, and within their weekly-hour limit. Results contain
+`employee_id`, `name`, and `scheduled_hours`, ordered by scheduled weekly hours
+and then employee ID. If nobody qualifies, the endpoint returns `[]`.
+Retrieving recommendations does not assign anyone.
+
+Approval requires a manager's explicit request and rechecks the employee's
+current eligibility. Successful approval assigns the employee and updates
+scheduled staffing counts. Unknown shifts or employees return `404`; invalid
+input returns `400`; ineligible assignments or a shift that is no longer open
+return `409`. Both endpoints require manager access.
 
 ### Shift object
 

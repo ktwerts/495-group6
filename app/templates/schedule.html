@@ -69,10 +69,80 @@ function button(text, className, onClick) {
 function assignControls(shift) {
   const wrap = document.createElement('div');
   wrap.className = 'form inline';
-  if (shift.status === 'assigned') {
-    wrap.append(button('Unassign', 'btn small secondary', () => updateShift(shift, 'unassign')));
+    if (shift.status === 'assigned') {
+    wrap.append(
+      button('Unassign', 'btn small secondary', () => updateShift(shift, 'unassign')),
+      button('Report absence', 'btn small secondary', async event => {
+        const confirmed = window.confirm(
+          `Record a full-day absence for ${employeeName(shift.employee_id)} on ${shift.date}?`
+        );
+        if (!confirmed) return;
+
+        const absenceButton = event.currentTarget;
+        absenceButton.disabled = true;
+        try {
+          await api('/api/absences', {
+            method: 'POST',
+            body: { employee_id: shift.employee_id, date: shift.date },
+          });
+          showMessage('Absence recorded. Assigned shifts for that day were reopened.');
+          await loadShifts();
+        } catch (error) {
+          showError(error);
+        } finally {
+          absenceButton.disabled = false;
+        }
+      })
+    );
     return wrap;
   }
+    if (shift.status !== 'open') return wrap;
+
+  const replacementControls = document.createElement('div');
+  const findButton = button('Find replacements', 'btn small secondary', async () => {
+    findButton.disabled = true;
+    replacementControls.replaceChildren();
+
+    try {
+      const candidates = await api(`/api/shifts/${shift.id}/recommendations?limit=50`);
+
+      if (candidates.length === 0) {
+        replacementControls.textContent = 'No eligible replacements.';
+        return;
+      }
+
+      const replacementSelect = document.createElement('select');
+      replacementSelect.setAttribute('aria-label', `Replacement for shift ${shift.id}`);
+      candidates.forEach(candidate => {
+        replacementSelect.add(new Option(candidate.name, candidate.employee_id));
+      });
+
+      const approveButton = button('Approve replacement', 'btn small', async () => {
+        approveButton.disabled = true;
+        try {
+          await api(`/api/shifts/${shift.id}/recommendations/approve`, {
+            method: 'POST',
+            body: { employee_id: Number(replacementSelect.value) },
+          });
+          showMessage('Replacement approved.');
+          await loadShifts();
+        } catch (error) {
+          showError(error);
+          replacementControls.replaceChildren();
+        } finally {
+          approveButton.disabled = false;
+        }
+      });
+
+      replacementControls.append(replacementSelect, approveButton);
+    } catch (error) {
+      showError(error);
+    } finally {
+      findButton.disabled = false;
+    }
+  });
+
+  wrap.append(findButton, replacementControls);
   const select = document.createElement('select');
   select.setAttribute('aria-label', `Employee for shift ${shift.id}`);
   select.add(new Option('Choose employee', ''));

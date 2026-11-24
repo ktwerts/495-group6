@@ -42,5 +42,24 @@ def unassign_shift(shift_id: int):
     return jsonify(service.unassign_shift(shift_id))
 
 
-# TODO(Lead Architect): report absence, recommend replacements,
-# and approve/reject a recommendation.
+@bp.post("/api/absences")
+@role_required("manager")
+def report_absence():
+    data = require_json(request.get_json(silent=True))
+    employee_id = parse_int(data.get("employee_id"), "employee_id", minimum=1)
+    return jsonify(service.report_absence(employee_id, data.get("date"))), 201
+
+
+@bp.get("/api/shifts/<int:shift_id>/recommendations")
+@role_required("manager")
+def recommend_replacements(shift_id: int):
+    limit = parse_int(request.args.get("limit", 3), "limit", minimum=1, maximum=50)
+    return jsonify(service.recommend_replacements(shift_id, limit))
+
+
+@bp.post("/api/shifts/<int:shift_id>/recommendations/approve")
+@role_required("manager")
+def approve_replacement(shift_id: int):
+    data = require_json(request.get_json(silent=True))
+    employee_id = parse_int(data.get("employee_id"), "employee_id", minimum=1)
+    return jsonify(service.approve_replacement(shift_id, employee_id))
