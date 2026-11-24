@@ -314,3 +314,33 @@ def approve_replacement(shift_id: int, employee_id: int) -> dict:
         return assign_shift(shift_id, employee_id)
 
     return assign_shift(shift_id, employee_id)
+
+
+def validate_weekly_hour_limit(employee_id: int, proposed_limit: float) -> None:
+    """Reject limits below assigned hours in the current or future weeks."""
+    monday, _ = constraints.week_of(date.today().isoformat())
+    rows = get_db().execute(
+        """
+        SELECT date, start_time, end_time
+        FROM shifts
+        WHERE employee_id = ? AND status = 'assigned' AND date >= ?
+        """,
+        (employee_id, monday),
+    )
+
+    hours_by_week = {}
+    for row in rows:
+        week_start, _ = constraints.week_of(row["date"])
+        hours_by_week[week_start] = hours_by_week.get(week_start, 0) + constraints.shift_hours(
+            dict(row)
+        )
+
+    for week_start, hours in sorted(hours_by_week.items()):
+        if hours > proposed_limit:
+            raise ConflictError(
+                "Weekly limit conflicts with assigned shifts",
+                [
+                    f"Week starting {week_start} already has {hours:g} assigned hours. "
+                    "Adjust the schedule before lowering the limit."
+                ],
+            )

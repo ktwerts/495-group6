@@ -3,6 +3,8 @@
 The constraint functions are pure, so test them directly without the database.
 """
 
+from datetime import date, timedelta
+
 import pytest
 
 from app.db import get_db
@@ -587,3 +589,96 @@ def test_recommendations_reject_invalid_limit(app, manager, limit):
     response = manager.get(f"/api/shifts/{shift_id}/recommendations?limit={limit}")
 
     assert response.status_code == 400
+
+
+def test_assignment_respects_weekly_limit_entered_through_employee_api(manager):
+    created = manager.post(
+        "/api/employees",
+        json={
+            "name": "Part-Time Employee",
+            "position": "Host",
+            "max_weekly_hours": 6,
+        },
+    )
+    assert created.status_code == 201
+    employee_id = created.get_json()["id"]
+
+    availability = manager.post(
+        f"/api/employees/{employee_id}/availability",
+        json={"day_of_week": 1, "start_time": "08:00", "end_time": "18:00"},
+    )
+    assert availability.status_code == 201
+
+    first_id = create(
+        manager,
+        start_time="08:00",
+        end_time="12:00",
+        required_qualification="",
+    )
+    assert assign(manager, first_id, employee_id).status_code == 200
+
+    second_id = create(
+        manager,
+        start_time="13:00",
+        end_time="16:00",
+        required_qualification="",
+    )
+    response = assign(manager, second_id, employee_id)
+
+    assert response.status_code == 409
+    assert any("weekly limit" in violation for violation in response.get_json()["violations"])
+
+    shifts = manager.get("/api/shifts").get_json()
+    second = next(shift for shift in shifts if shift["id"] == second_id)
+    assert second["status"] == "open"
+    assert second["employee_id"] is None
+
+
+@pytest.mark.parametrize(
+    ("new_limit", "expected_status", "saved_limit"),
+    [(3, 409, 6), (4, 200, 4)],
+)
+def test_weekly_limit_edit_respects_upcoming_schedule(
+    manager, new_limit, expected_status, saved_limit
+):
+    day = date.today() + timedelta(days=7)
+    created = manager.post(
+        "/api/employees",
+        json={
+            "name": "Part-Time Employee",
+            "position": "Host",
+            "max_weekly_hours": 6,
+        },
+    )
+    assert created.status_code == 201
+    employee_id = created.get_json()["id"]
+
+    availability = manager.post(
+        f"/api/employees/{employee_id}/availability",
+        json={
+            "day_of_week": day.weekday(),
+            "start_time": "08:00",
+            "end_time": "18:00",
+        },
+    )
+    assert availability.status_code == 201
+
+    shift_id = create(
+        manager,
+        date=day.isoformat(),
+        start_time="08:00",
+        end_time="12:00",
+        required_qualification="",
+    )
+    assert assign(manager, shift_id, employee_id).status_code == 200
+
+    response = manager.patch(
+        f"/api/employees/{employee_id}/weekly-hours",
+        json={"max_weekly_hours": new_limit},
+    )
+
+    assert response.status_code == expected_status
+
+    employees = manager.get("/api/employees").get_json()
+    saved = next(employee for employee in employees if employee["id"] == employee_id)
+    assert saved["max_weekly_hours"] == saved_limit
