@@ -129,7 +129,77 @@ jobs:
           forecast = c.get("/api/forecast").get_json()
           assert len(forecast["days"]) == 7, forecast
           assert all(d["predicted_staff_needed"] >= 1 for d in forecast["days"]), forecast
-          # TODO(team): as features land, assert key API responses here too
-          # (e.g. /api/employees returns the seeded employees).
+          from datetime import date
+
+          day = date.today()
+
+          def checked(method, path, expected, body=None):
+              response = c.open(path, method=method, json=body)
+              assert response.status_code == expected, (path, response.get_json())
+              return response.get_json()
+
+          def forecast_day():
+              result = checked(
+                  "GET", f"/api/forecast?start={day.isoformat()}&days=1", 200
+              )
+              return result["days"][0]
+
+          employee_ids = []
+          for name in ("Smoke Original", "Smoke Replacement"):
+              employee = checked(
+                  "POST", "/api/employees", 201,
+                  {"name": name, "position": "Host"},
+              )
+              employee_ids.append(employee["id"])
+              checked(
+                  "POST", f"/api/employees/{employee['id']}/availability", 201,
+                  {
+                      "day_of_week": day.weekday(),
+                      "start_time": "08:00",
+                      "end_time": "18:00",
+                  },
+              )
+
+          original_id, replacement_id = employee_ids
+          shift = checked(
+              "POST", "/api/shifts", 201,
+              {
+                  "date": day.isoformat(),
+                  "start_time": "09:00",
+                  "end_time": "13:00",
+              },
+          )
+          shift_id = shift["id"]
+          checked(
+              "POST", f"/api/shifts/{shift_id}/assign", 200,
+              {"employee_id": original_id},
+          )
+          before = forecast_day()
+
+          checked(
+              "POST", "/api/absences", 201,
+              {"employee_id": original_id, "date": day.isoformat()},
+          )
+          after_absence = forecast_day()
+          assert after_absence["scheduled_staff"] == before["scheduled_staff"] - 1
+          assert after_absence["gap"] == before["gap"] + 1
+
+          candidates = checked(
+              "GET", f"/api/shifts/{shift_id}/recommendations?limit=50", 200
+          )
+          candidate_ids = [candidate["employee_id"] for candidate in candidates]
+          assert original_id not in candidate_ids
+          assert replacement_id in candidate_ids
+          assert forecast_day()["scheduled_staff"] == after_absence["scheduled_staff"]
+
+          approved = checked(
+              "POST", f"/api/shifts/{shift_id}/recommendations/approve", 200,
+              {"employee_id": replacement_id},
+          )
+          assert approved["employee_id"] == replacement_id
+          assert approved["status"] == "assigned"
+          after_approval = forecast_day()
+          assert after_approval["scheduled_staff"] == before["scheduled_staff"]
+          assert after_approval["gap"] == before["gap"]
           print("Smoke test OK")
           EOF
