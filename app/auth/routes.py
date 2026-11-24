@@ -2,6 +2,7 @@ from flask import Blueprint, g, jsonify, render_template, request, session
 
 from app.auth import service
 from app.auth.decorators import login_required, role_required
+from app.auth.limiter import limiter
 from app.validation import require_fields, require_json
 
 bp = Blueprint("auth", __name__)
@@ -19,6 +20,7 @@ def login_page():
 
 
 @bp.post("/api/auth/login")
+@limiter.limit("5 per minute", deduct_when=lambda response: response.status_code == 401)
 def login():
     data = require_json(request.get_json(silent=True))
     require_fields(data, "username", "password")
