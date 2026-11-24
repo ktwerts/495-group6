@@ -19,6 +19,7 @@ PR review with inline comments. A copy goes here so it's part of the submitted r
 
 | Reviewer | Reviews module | Author | PR | Status |
 |----------|----------------|--------|----|--------|
-| | | | | |
-| | | | | |
-| | | | | |
+| Kaden | Employees | Jason | [#2](https://github.com/ktwerts/495-group6/pull/2) | Review and corrections documented; follow-up approval absent |
+| Jason | Forecast features | Kaden | [#4](https://github.com/ktwerts/495-group6/pull/4) | Corrections reverified November 23; original follow-up approval absent |
+| Jason | Scheduling | Diana | [#6](https://github.com/ktwerts/495-group6/pull/6) | Corrections reverified November 23; original follow-up approval absent|
+| Diana | Staffing history | Kaden | [#3](https://github.com/ktwerts/495-group6/pull/3) | Review and corrections documented; follow-up approval absent |
