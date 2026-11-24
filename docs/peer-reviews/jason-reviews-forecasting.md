@@ -25,11 +25,23 @@ and staffing-target validation, with regression tests for the reported cases.
 
 Jason's review text requested changes, but its GitHub review state is
 COMMENTED. No follow-up approval is recorded. The PR merged on
-November 17, 2026. The corrective commit establishes that the requested
-changes were made; reviewer re-verification remains an evidence gap.
+November 17, 2026. Retrospective reviewer verification is documented below.
 
 ## Remaining scope
 
 These corrections validate model inputs. They do not establish prediction
 accuracy on real workplace data. Synthetic-data evaluation remains
 documented separately as TD-3.
+
+## Follow-up verification — November 23, 2026
+
+Jason reran the Forecasting, Scheduling, and staffing-history suites on
+the revision branch using Python 3.14. All 117 selected tests passed.
+
+The Forecasting results confirm rejection of NaN and infinite workloads,
+rejection of fractional staffing targets, and acceptance of valid zero,
+decimal workload, and whole-number staffing values. This verifies the
+two required corrections from the original review.
+
+This is retrospective verification of the integrated revision. The
+original PR has no subsequent GitHub approval recorded.

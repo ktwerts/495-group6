@@ -27,9 +27,7 @@ The additional commit adds route tests and date-filter handling.
 
 Jason submitted the review with GitHub state COMMENTED. No subsequent
 review approval or explicit reviewer confirmation is recorded. The PR
-merged on November 17, 2026, America/Chicago. Corrective commits provide
-implementation evidence; follow-up reviewer verification remains an
-evidence gap.
+merged on November 17, 2026, America/Chicago. Retrospective reviewer verification is documented below.
 
 ## Subsequent Alpha work
 
@@ -37,3 +35,16 @@ This review covered the initial Scheduling implementation. Absence
 recording, replacement selection, manager approval, and their end-to-end
 Forecasting test were subsequently implemented in PR #11. Weekly-hour
 configuration followed in PR #12.
+
+## Follow-up verification — November 23, 2026
+
+Jason reran the Forecasting, Scheduling, and staffing-history suites on
+the revision branch using Python 3.14. All 117 selected tests passed.
+
+The Scheduling results confirm normalized single-digit hours, correct
+overlap detection, counting assigned employees, date-range filtering,
+and manager-only shift routes. These verify the corrections requested
+in the original review.
+
+This is retrospective verification of the integrated revision. The
+original PR has no subsequent GitHub approval recorded.
