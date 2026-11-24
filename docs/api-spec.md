@@ -23,6 +23,7 @@ endpoint change, so teammates can code against it.
 | 403 | Logged in but wrong role |
 | 404 | Record not found |
 | 409 | Breaks a scheduling rule (see `violations`) |
+| 429 | Login rate limit exceeded |
 | 501 | Endpoint exists but isn't implemented yet (scaffold stub) |
 
 **Role key:** M = manager only, A = any logged-in user, P = public
@@ -35,6 +36,15 @@ endpoint change, so teammates can code against it.
 | POST | `/api/auth/logout` | P | — | `{message}` |
 | GET | `/api/auth/me` | A | — | `{id, username, role, employee_id}` |
 | POST | `/api/auth/users` | M | `{username, password (8+ chars), role, employee_id?}` | user |
+
+Login allows five failed authentication attempts per minute per client IP.
+Failures returning `401` consume the allowance; successful logins do not.
+Once exhausted, further login requests return `429` with a JSON `error`
+until the window expires. Clients sharing an IP share the allowance.
+
+Alpha uses in-memory counters within one server process. Counters reset
+when the process restarts. Multiple server processes require shared storage
+to enforce a consistent limit.
 
 ## Employees (Interface Designer)
 

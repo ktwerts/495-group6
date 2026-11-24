@@ -103,7 +103,9 @@ These are tracked with impact and mitigation plans in the
 
 - The model trains on synthetic history, so its accuracy shows the pipeline works, not
   real-world accuracy (TD-3).
-- No login rate limiting yet (TD-1).
+- Login rate limiting uses in-memory counters for the single-process Alpha.
+  Shared storage is required for consistent limits across multiple workers,
+  and restarting the server resets the counters (TD-1).
 - The employee home page's "My shifts" list is still a placeholder.
 
 ## Running checks locally (the same checks CI runs)

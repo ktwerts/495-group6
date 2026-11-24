@@ -37,6 +37,9 @@ def create_app(config_name: str | None = None, overrides: dict | None = None) ->
 
     db.init_app(app)
     register_error_handlers(app)
+    from app.auth.limiter import limiter
+
+    limiter.init_app(app)
 
     from app.auth.routes import bp as auth_bp
     from app.employees.routes import bp as employees_bp

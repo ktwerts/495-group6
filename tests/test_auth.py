@@ -1,3 +1,5 @@
+import time
+
 from app.db import get_db
 from tests.conftest import MANAGER
 
@@ -12,6 +14,21 @@ def test_login_success_returns_role(client):
 def test_login_wrong_password(client):
     res = client.post("/api/auth/login", json={"username": "manager", "password": "nope-nope"})
     assert res.status_code == 401
+
+
+def test_repeated_failed_logins_are_rate_limited(client):
+    credentials = {"username": "manager", "password": "incorrect-password"}
+
+    for _ in range(5):
+        response = client.post("/api/auth/login", json=credentials)
+        assert response.status_code == 401
+
+    blocked = client.post("/api/auth/login", json=credentials)
+
+    assert blocked.status_code == 429
+    assert blocked.is_json
+    assert blocked.get_json()["error"]
+    assert client.get("/api/auth/me").status_code == 401
 
 
 def test_login_missing_fields(client):
@@ -57,3 +74,55 @@ def test_manager_can_create_user_with_validation(manager):
         "/api/auth/users", json={"username": "new", "password": "long-enough", "role": "employee"}
     )
     assert dup.status_code == 400
+
+
+def test_login_rate_limit_expires(client, monkeypatch):
+    now = time.time()
+    monkeypatch.setattr(time, "time", lambda: now)
+    credentials = {"username": "manager", "password": "incorrect-password"}
+
+    for _ in range(5):
+        assert client.post("/api/auth/login", json=credentials).status_code == 401
+
+    assert client.post("/api/auth/login", json=MANAGER).status_code == 429
+
+    now += 61
+
+    response = client.post("/api/auth/login", json=MANAGER)
+    assert response.status_code == 200
+    assert client.get("/api/auth/me").status_code == 200
+
+
+def test_successful_logins_do_not_consume_failure_allowance(client):
+    for _ in range(6):
+        response = client.post("/api/auth/login", json=MANAGER)
+        assert response.status_code == 200
+        assert client.post("/api/auth/logout").status_code == 200
+
+
+def test_login_rate_limit_is_separate_for_each_ip(client):
+    credentials = {"username": "manager", "password": "incorrect-password"}
+    first_ip = {"REMOTE_ADDR": "192.0.2.1"}
+    second_ip = {"REMOTE_ADDR": "192.0.2.2"}
+
+    for _ in range(5):
+        response = client.post(
+            "/api/auth/login",
+            json=credentials,
+            environ_overrides=first_ip,
+        )
+        assert response.status_code == 401
+
+    blocked = client.post(
+        "/api/auth/login",
+        json=MANAGER,
+        environ_overrides=first_ip,
+    )
+    assert blocked.status_code == 429
+
+    allowed = client.post(
+        "/api/auth/login",
+        json=MANAGER,
+        environ_overrides=second_ip,
+    )
+    assert allowed.status_code == 200
