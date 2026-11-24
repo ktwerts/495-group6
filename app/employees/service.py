@@ -14,6 +14,7 @@ Tips:
 """
 
 import json
+import math
 from collections import defaultdict
 
 from app.db import get_db
@@ -63,6 +64,20 @@ def get_employee(employee_id: int) -> dict:
     raise NotImplementedError("employees.get_employee")
 
 
+def validate_weekly_hours(value) -> float:
+    """Validate an employee's maximum weekly hours."""
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not math.isfinite(value)
+        or not 0 < value <= 168
+    ):
+        raise ValidationError(
+            "max_weekly_hours must be a finite number greater than 0 and at most 168"
+        )
+    return float(value)
+
+
 def create_employee(data: dict) -> dict:
     """Create an active employee from a name and position."""
     fields = {}
@@ -75,7 +90,7 @@ def create_employee(data: dict) -> dict:
             raise ValidationError(f"{field} must be at most 100 characters")
         fields[field] = value
 
-    max_weekly_hours = 40
+    max_weekly_hours = validate_weekly_hours(data.get("max_weekly_hours", 40))
     db = get_db()
     cursor = db.execute(
         """
@@ -94,6 +109,22 @@ def create_employee(data: dict) -> dict:
         "availability": [],
         "active": 1,
     }
+
+
+def update_weekly_hours(employee_id: int, data: dict) -> dict:
+    """Update an employee's weekly-hour limit."""
+    max_weekly_hours = validate_weekly_hours(data.get("max_weekly_hours"))
+    db = get_db()
+
+    with db:
+        result = db.execute(
+            "UPDATE employees SET max_weekly_hours = ? WHERE id = ?",
+            (max_weekly_hours, employee_id),
+        )
+        if result.rowcount == 0:
+            raise NotFoundError(f"Employee {employee_id} not found")
+
+    return {"id": employee_id, "max_weekly_hours": max_weekly_hours}
 
 
 def get_availability(employee_id: int) -> list[dict]:

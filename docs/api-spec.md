@@ -51,15 +51,24 @@ to enforce a consistent limit.
 To create an employee, send `name` and `position` as nonblank strings.
 Leading and trailing whitespace is trimmed. Each field must be at most 100 characters after trimming. A successful request returns
 `201 Created` with `id`, `name`, `position`, `active` (integer `1`),
-`max_weekly_hours` (number, defaults to `40`), and empty `qualifications`
-and `availability` arrays. Invalid input returns `400`. A signed-out
-caller receives `401`, and a signed-in employee receives `403`.
+`max_weekly_hours` is optional when creating an employee and defaults to 40.
+When supplied, it must be a JSON number greater than 0 and at most 168. Fractional hours are accepted. Booleans, strings, null, and non-finite values are rejected with `400`. A signed-out caller receives `401`, and a signed-in employee receives `403`.
+
+Managers can update an existing employee's weekly limit using
+`PATCH /api/employees/{employee_id}/weekly-hours`. The field is required
+and uses the same validation as creation. Unknown employees return `404`.
+
+An update returns `409` if the proposed limit is below assigned hours in
+the current Monday–Sunday week or any future week. Managers must adjust
+the conflicting schedule first. Historical weeks do not prevent an update.
+Both creation and editing require manager access.
 
 | Method | Path | Role | Body / query | Returns | Status |
 |--------|------|------|--------------|---------|--------|
 | GET | `/api/employees` | M | — | List of active employees (200) | Implemented |
 | POST | `/api/employees` | M | JSON with `name` and `position` | Created employee (201) | Implemented |
 | POST | `/api/employees/{employee_id}/availability` | M | JSON with `day_of_week`, `start_time`, and `end_time` | Recorded slot (201) | Implemented |
+| PATCH | `/api/employees/{employee_id}/weekly-hours` | M | `{max_weekly_hours}` | `{id, max_weekly_hours}` (200) | Implemented |
 
 To record a weekly availability slot, send `day_of_week` as an integer
 from `0` (Monday) to `6` (Sunday), with `start_time` and `end_time` in
