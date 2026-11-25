@@ -1,5 +1,6 @@
 import time
 
+from app import create_app
 from app.db import get_db
 from tests.conftest import MANAGER
 
@@ -126,3 +127,47 @@ def test_login_rate_limit_is_separate_for_each_ip(client):
         environ_overrides=second_ip,
     )
     assert allowed.status_code == 200
+
+
+def test_login_limit_comes_from_config(app, client):
+    app.config["LOGIN_RATE_LIMIT"] = "2 per minute"
+    credentials = {"username": "manager", "password": "incorrect-password"}
+
+    for _ in range(2):
+        assert client.post("/api/auth/login", json=credentials).status_code == 401
+
+    assert client.post("/api/auth/login", json=MANAGER).status_code == 429
+
+
+def test_failed_logins_for_one_username_are_limited_across_ips(app, client):
+    app.config["LOGIN_USERNAME_RATE_LIMIT"] = "3 per minute"
+    credentials = {"username": " Manager ", "password": "incorrect-password"}
+
+    for number in range(3):
+        response = client.post(
+            "/api/auth/login",
+            json=credentials,
+            environ_overrides={"REMOTE_ADDR": f"192.0.2.{number + 10}"},
+        )
+        assert response.status_code == 401
+
+    fresh_ip = {"REMOTE_ADDR": "192.0.2.50"}
+    blocked = client.post("/api/auth/login", json=MANAGER, environ_overrides=fresh_ip)
+    assert blocked.status_code == 429
+
+    other_user = client.post(
+        "/api/auth/login",
+        json={"username": "staff", "password": "staff-pass-123"},
+        environ_overrides=fresh_ip,
+    )
+    assert other_user.status_code == 200
+
+
+def test_new_app_starts_with_empty_login_counters(app, client):
+    credentials = {"username": "manager", "password": "incorrect-password"}
+    for _ in range(5):
+        assert client.post("/api/auth/login", json=credentials).status_code == 401
+    assert client.post("/api/auth/login", json=MANAGER).status_code == 429
+
+    fresh = create_app("testing", {"DATABASE": app.config["DATABASE"]})
+    assert fresh.test_client().post("/api/auth/login", json=MANAGER).status_code == 200

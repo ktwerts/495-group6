@@ -47,7 +47,14 @@ def unassign_shift(shift_id: int):
 def report_absence():
     data = require_json(request.get_json(silent=True))
     employee_id = parse_int(data.get("employee_id"), "employee_id", minimum=1)
-    return jsonify(service.report_absence(employee_id, data.get("date"))), 201
+    absence = service.report_absence(employee_id, data.get("date"), data.get("reason"))
+    return jsonify(absence), 201
+
+
+@bp.delete("/api/absences/<int:absence_id>")
+@role_required("manager")
+def cancel_absence(absence_id: int):
+    return jsonify(service.cancel_absence(absence_id))
 
 
 @bp.get("/api/shifts/<int:shift_id>/recommendations")

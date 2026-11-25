@@ -19,6 +19,13 @@ def history(app):
 
 @pytest.fixture
 def scheduled(monkeypatch):
+    """Two staff scheduled on every day, through both counting paths."""
+
+    def count_between(start, end):
+        first, last = date.fromisoformat(start), date.fromisoformat(end)
+        return {(first + timedelta(days=n)).isoformat(): 2 for n in range((last - first).days + 1)}
+
+    monkeypatch.setattr(scheduling, "count_scheduled_staff_between", count_between)
     monkeypatch.setattr(scheduling, "count_scheduled_staff", lambda on_date: 2)
 
 

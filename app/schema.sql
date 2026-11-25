@@ -66,6 +66,9 @@ CREATE TABLE absences (
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- One full-day absence per employee per date.
+CREATE UNIQUE INDEX absences_employee_date ON absences (employee_id, date);
+
 CREATE TABLE recommendations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     shift_id INTEGER NOT NULL,

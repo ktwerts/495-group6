@@ -23,6 +23,14 @@ class Config:
     FORECAST_MIN_HISTORY = int(os.environ.get("SHIFTWISE_FORECAST_MIN_HISTORY", "28"))
     FORECAST_MAX_DAYS = 31
 
+    # Failed logins allowed per client IP (Flask-Limiter syntax). Only 401s count.
+    LOGIN_RATE_LIMIT = os.environ.get("SHIFTWISE_LOGIN_RATE_LIMIT", "5 per minute")
+    # Failed logins allowed per username across all IPs, so spreading guesses over
+    # many addresses is still slowed down.
+    LOGIN_USERNAME_RATE_LIMIT = os.environ.get("SHIFTWISE_LOGIN_USERNAME_RATE_LIMIT", "20 per hour")
+    # Flask-Limiter reads this; set SHIFTWISE_RATELIMIT_ENABLED=0 to turn limiting off.
+    RATELIMIT_ENABLED = os.environ.get("SHIFTWISE_RATELIMIT_ENABLED", "1") != "0"
+
     DEBUG = False
     TESTING = False
 

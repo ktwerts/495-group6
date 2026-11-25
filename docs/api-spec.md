@@ -37,10 +37,18 @@ endpoint change, so teammates can code against it.
 | GET | `/api/auth/me` | A | — | `{id, username, role, employee_id}` |
 | POST | `/api/auth/users` | M | `{username, password (8+ chars), role, employee_id?}` | user |
 
-Login allows five failed authentication attempts per minute per client IP.
-Failures returning `401` consume the allowance; successful logins do not.
-Once exhausted, further login requests return `429` with a JSON `error`
-until the window expires. Clients sharing an IP share the allowance.
+Login has two failed-attempt limits, both set in `app/config.py`:
+
+- `LOGIN_RATE_LIMIT` (default five per minute) per client IP.
+- `LOGIN_USERNAME_RATE_LIMIT` (default 20 per hour) per submitted username,
+  ignoring case and surrounding spaces, across all IPs.
+
+Failures returning `401` consume both allowances; successful logins do not.
+Once either is exhausted, further login requests return `429` with a JSON
+`error` until the window expires. Clients sharing an IP share the IP allowance.
+The environment variables `SHIFTWISE_LOGIN_RATE_LIMIT` and
+`SHIFTWISE_LOGIN_USERNAME_RATE_LIMIT` override the limits, and
+`SHIFTWISE_RATELIMIT_ENABLED=0` turns limiting off.
 
 Alpha uses in-memory counters within one server process. Counters reset
 when the process restarts. Multiple server processes require shared storage
@@ -129,15 +137,22 @@ qualification strings are matched.
 | POST | `/api/shifts` | M | `{date, start_time, end_time, required_qualification?}` | Created open shift | Implemented (201) |
 | POST | `/api/shifts/{shift_id}/assign` | M | `{employee_id}` | Assigned shift | Implemented (200) |
 | POST | `/api/shifts/{shift_id}/unassign` | M | — | Reopened shift | Implemented (200) |
-| POST | `/api/absences` | M | `{employee_id, date}` | Recorded absence (201) | Implemented |
+| POST | `/api/absences` | M | `{employee_id, date, reason?}` | Recorded absence (201) | Implemented |
+| DELETE | `/api/absences/{absence_id}` | M | — | Cancelled absence (200) | Implemented |
 | GET | `/api/shifts/{shift_id}/recommendations` | M | Optional `limit`, 1–50; default 3 | Eligible replacements (200) | Implemented |
 | POST | `/api/shifts/{shift_id}/recommendations/approve` | M | `{employee_id}` | Assigned shift (200) | Implemented |
 
 `POST /api/absences` records a full-day absence for an existing employee. The date must use `YYYY-MM-DD` format. Recording the absence reopens all of that employee's assigned shifts on that date and clears their employee assignments in the same transaction. Subsequent assignment attempts for that employee on that date return `409`.
 
-A successful request returns `201` with `{id, employee_id, date}`.
-Invalid input returns `400`, an unknown employee returns `404`, and
-access requires a signed-in manager (`401` or `403` otherwise).
+`reason` is optional text of at most 200 characters; it is trimmed, and blank means none.
+A successful request returns `201` with `{id, employee_id, date, reason}`.
+Invalid input returns `400`, an unknown employee returns `404`, a second absence
+for the same employee and date returns `409`, and access requires a signed-in
+manager (`401` or `403` otherwise).
+
+`DELETE /api/absences/{absence_id}` removes a mistaken absence and returns it, so
+the employee is eligible again that day. Shifts the absence reopened stay open
+until a manager reassigns them. An unknown ID returns `404`.
 
 Replacement recommendations require an open shift. Candidates must be active,
 qualified, available for the entire shift, free of overlapping assignments and

@@ -8,6 +8,7 @@ from datetime import date, timedelta
 import pytest
 
 from app.db import get_db
+from app.errors import ValidationError
 from app.scheduling import constraints
 from app.scheduling import service as scheduling
 
@@ -682,3 +683,91 @@ def test_weekly_limit_edit_respects_upcoming_schedule(
     employees = manager.get("/api/employees").get_json()
     saved = next(employee for employee in employees if employee["id"] == employee_id)
     assert saved["max_weekly_hours"] == saved_limit
+
+
+def report(manager, employee_id, **extra):
+    return manager.post(
+        "/api/absences",
+        json={"employee_id": employee_id, "date": SHIFT["date"], **extra},
+    )
+
+
+def test_duplicate_absence_is_rejected(app, manager):
+    employee_id = add_employee(app)
+
+    assert report(manager, employee_id).status_code == 201
+    assert report(manager, employee_id).status_code == 409
+    with app.app_context():
+        count = get_db().execute("SELECT COUNT(*) FROM absences").fetchone()[0]
+    assert count == 1
+
+
+def test_absence_stores_optional_reason(app, manager):
+    employee_id = add_employee(app)
+
+    created = report(manager, employee_id, reason="  Sick  ")
+
+    assert created.status_code == 201
+    assert created.get_json()["reason"] == "Sick"
+    with app.app_context():
+        stored = get_db().execute("SELECT reason FROM absences").fetchone()["reason"]
+    assert stored == "Sick"
+
+
+@pytest.mark.parametrize("reason", [123, "x" * 201])
+def test_absence_rejects_bad_reason(app, manager, reason):
+    employee_id = add_employee(app)
+
+    assert report(manager, employee_id, reason=reason).status_code == 400
+
+
+def test_cancelled_absence_makes_employee_eligible_again(app, manager):
+    employee_id = add_employee(app)
+    shift_id = create(manager)
+    assert assign(manager, shift_id, employee_id).status_code == 200
+
+    absence_id = report(manager, employee_id).get_json()["id"]
+    assert assign(manager, shift_id, employee_id).status_code == 409
+
+    cancelled = manager.delete(f"/api/absences/{absence_id}")
+    assert cancelled.status_code == 200
+    assert cancelled.get_json()["id"] == absence_id
+
+    # The reopened shift stays open until the manager reassigns it.
+    assert manager.get("/api/shifts").get_json()[0]["status"] == "open"
+    assert assign(manager, shift_id, employee_id).status_code == 200
+
+
+def test_cancel_unknown_absence_returns_404(manager):
+    assert manager.delete("/api/absences/999999").status_code == 404
+
+
+def test_cancel_absence_is_manager_only(client, staff):
+    assert staff.delete("/api/absences/1").status_code == 403
+    staff.post("/api/auth/logout")
+    assert client.delete("/api/absences/1").status_code == 401
+
+
+def test_count_scheduled_staff_between_groups_by_date(app, manager):
+    first = add_employee(app, name="First")
+    second = add_employee(app, name="Second")
+    morning = create(manager, start_time="09:00", end_time="12:00")
+    afternoon = create(manager, start_time="13:00", end_time="16:00")
+    assert assign(manager, morning, first).status_code == 200
+    assert assign(manager, afternoon, first).status_code == 200
+    assert assign(manager, create(manager), second).status_code == 200
+    create(manager, date="2026-11-18")
+
+    with app.app_context():
+        counts = scheduling.count_scheduled_staff_between("2026-11-16", "2026-11-18")
+
+    assert counts == {"2026-11-17": 2}
+
+
+@pytest.mark.parametrize(
+    ("start", "end"),
+    [("2026-11-18", "2026-11-17"), ("11/17/2026", "2026-11-18"), ("2026-11-17", None)],
+)
+def test_count_scheduled_staff_between_rejects_bad_range(app, start, end):
+    with app.app_context(), pytest.raises(ValidationError):
+        scheduling.count_scheduled_staff_between(start, end)

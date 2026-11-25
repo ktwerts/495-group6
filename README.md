@@ -75,6 +75,14 @@ python run.py            # http://127.0.0.1:5000
 `flask --app run seed` wipes and reloads everything each time it runs. Stop the server with
 Ctrl+C.
 
+**After every `git pull`**, reinstall dependencies, because new packages (such as
+Flask-Limiter) are added over time. If `app/schema.sql` changed, reseed too:
+
+```bash
+pip install -r requirements-dev.txt
+flask --app run seed     # only when schema.sql changed; this wipes local data
+```
+
 ## Using the app
 
 The seed creates two logins, `manager` and `employee`, four employees, a week of shifts starting
@@ -103,9 +111,10 @@ These are tracked with impact and mitigation plans in the
 
 - The model trains on synthetic history, so its accuracy shows the pipeline works, not
   real-world accuracy (TD-3).
-- Login rate limiting uses in-memory counters for the single-process Alpha.
-  Shared storage is required for consistent limits across multiple workers,
-  and restarting the server resets the counters (TD-1).
+- Login rate limiting (per IP and per username, set in `app/config.py`) uses
+  in-memory counters for the single-process Alpha. Shared storage is required for
+  consistent limits across multiple workers, and restarting the server resets the
+  counters (TD-1).
 - The employee home page's "My shifts" list is still a placeholder.
 
 ## Running checks locally (the same checks CI runs)

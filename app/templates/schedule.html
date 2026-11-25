@@ -69,7 +69,7 @@ function button(text, className, onClick) {
 function assignControls(shift) {
   const wrap = document.createElement('div');
   wrap.className = 'form inline';
-    if (shift.status === 'assigned') {
+  if (shift.status === 'assigned') {
     wrap.append(
       button('Unassign', 'btn small secondary', () => updateShift(shift, 'unassign')),
       button('Report absence', 'btn small secondary', async event => {
@@ -96,7 +96,7 @@ function assignControls(shift) {
     );
     return wrap;
   }
-    if (shift.status !== 'open') return wrap;
+  if (shift.status !== 'open') return wrap;
 
   const replacementControls = document.createElement('div');
   const findButton = button('Find replacements', 'btn small secondary', async () => {

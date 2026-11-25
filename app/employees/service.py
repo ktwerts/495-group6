@@ -38,12 +38,16 @@ def list_employees(include_inactive: bool = False) -> list[dict]:
         .fetchall()
     )
     availability_by_employee = defaultdict(list)
+    # Only load slots for the employees returned, not the whole table.
     slots = get_db().execute(
         """
-        SELECT employee_id, day_of_week, start_time, end_time
-        FROM availability
-        ORDER BY employee_id, day_of_week, start_time, end_time
-        """
+        SELECT a.employee_id, a.day_of_week, a.start_time, a.end_time
+        FROM availability AS a
+        JOIN employees AS e ON e.id = a.employee_id
+        WHERE e.active = 1 OR ? = 1
+        ORDER BY a.employee_id, a.day_of_week, a.start_time, a.end_time
+        """,
+        (include_inactive,),
     )
     for row in slots:
         slot = dict(row)

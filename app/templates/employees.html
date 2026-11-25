@@ -10,14 +10,14 @@
   <input id="employee-position" name="position" required maxlength="100">
   <label for="employee-weekly-hours">Maximum weekly hours</label>
   <input
-  id="employee-weekly-hours"
-  name="max_weekly_hours"
-  type="number"
-  min="0.01"
-  max="168"
-  step="0.01"
-  value="40"
-  required
+    id="employee-weekly-hours"
+    name="max_weekly_hours"
+    type="number"
+    min="0.01"
+    max="168"
+    step="0.01"
+    value="40"
+    required
   >
   <button type="submit" disabled>Add employee</button>
 </form>
@@ -84,10 +84,11 @@ function addEmployeeRow(employee) {
   row.insertCell().textContent = employee.name;
   row.insertCell().textContent = employee.position;
   row.insertCell().textContent = employee.qualifications.join(', ') || '—';
-    const availability = { cell: row.insertCell(), slots: employee.availability };
+  const availability = { cell: row.insertCell(), slots: employee.availability };
   availabilityByEmployee.set(String(employee.id), availability);
   renderAvailability(availability);
-    const hoursCell = row.insertCell();
+
+  const hoursCell = row.insertCell();
   const hoursForm = document.createElement('form');
   const hoursInput = document.createElement('input');
   hoursInput.type = 'number';

@@ -30,7 +30,7 @@ Module: **Scheduling** (`app/scheduling/`) + system design
 
 - [x] Design the `shifts`, `absences` and `recommendations` tables in `app/schema.sql`
 - [x] Implement `constraints.py` (availability, qualification, overlap, and any rules you add)
-- [ ] Implement `service.py` (shifts, absences, `count_scheduled_staff`, recommendations, manager approval)
+- [x] Implement `service.py` (shifts, absences, `count_scheduled_staff`, recommendations, manager approval)
 - [x] Add the scheduling endpoints, and build `templates/schedule.html`
 - [ ] Show an employee their own shifts on the home page
 - [x] Add a week of sample shifts to `app/seed.py`
@@ -54,7 +54,7 @@ Module: **Forecasting / AI** (`app/forecasting/`) + integration
 **Integration (Multi-Module Integration, 40 pts)**
 
 - [ ] Agree on the service functions each module exposes, and record them in `architecture.md`
-- [ ] Write at least one end-to-end test across modules (absence → recommend → approve → forecast)
+- [x] Write at least one end-to-end test across modules (absence → recommend → approve → forecast)
 
 **CI/CD (35 pts)**
 
