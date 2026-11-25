@@ -11,11 +11,42 @@ pending their merge and any subsequent changes.
 | Complete absence management and replacement coverage | Full-day absence recording reopens assigned shifts. Recommendations apply active status, qualifications, availability, overlap, absence, and weekly-hour checks. Manager approval rechecks eligibility and updates assignments. | [PR #11](https://github.com/ktwerts/495-group6/pull/11), merged. Browser checks covered successful coverage and no eligible replacement. |
 | Prove module integration | The seeded integration test records an absence, retrieves recommendations, approves coverage, and verifies Forecasting's scheduled count and gap before and after changes. | `tests/test_integration.py::test_approved_replacement_closes_forecast_gap`. Uses actual API calls and staffing counts. |
 | Complete skipped workflow and performance tests | Implemented Scheduling workflow tests, the replacement integration test, and the 50-employee recommendation benchmark. | `tests/test_scheduling.py`, `tests/test_integration.py`, and `tests/test_performance.py`. One employee self-service test remains explicitly deferred. |
-| Supply supported-version CI evidence | Current main passed Ruff, formatting, Bandit, dependency audit, Python 3.11–3.13 tests, and build smoke checks. | [Main run](https://github.com/ktwerts/495-group6/actions/runs/45318239921), commit `e111d583a3cd98245ec0d630f10a3bf5c66a91b0`. Final post-merge run still required. |
+| Supply supported-version CI evidence | Current main passed Ruff, formatting, Bandit, dependency audit, Python 3.11–3.13 tests, and build smoke checks. | [CI run #108](https://github.com/ktwerts/495-group6/actions/runs/45521937786) on main, commit `cd5d949`. Per-version results under [GitHub Actions CI results](#github-actions-ci-results). |
 | Preserve completed peer-review records | Four records link original reviews, required corrections, corrective commits, and verification limitations. Assignment table includes all three teammates. | [PR #14](https://github.com/ktwerts/495-group6/pull/14), open. See [review assignments](peer-reviews/README.md). Follow-up approvals are absent from the original reviewed PRs. |
 | Mitigate TD-2 | Managers can configure and edit weekly limits. Scheduling enforces them. Edits below assigned hours in the current or future weeks return 409. | [PR #12](https://github.com/ktwerts/495-group6/pull/12), merged. API, Scheduling, boundary, permission, and browser checks completed. |
 | Mitigate TD-1 | Added failed-login limits, JSON 429 responses, expiry recovery, and IP isolation tests. | [PR #13](https://github.com/ktwerts/495-group6/pull/13), open; [successful PR run](https://github.com/ktwerts/495-group6/actions/runs/45319767027). In-memory counter limitations remain documented. |
 | Evaluate TD-3 using representative data | Synthetic-data model evaluation and weekday-baseline comparison exist. Representative real/public staffing evaluation is outstanding. | [AI feature documentation](ai-feature.md) and [debt log](technical-debt.md). Synthetic performance does not establish workplace accuracy. |
+
+## GitHub Actions CI results
+
+[CI run #108](https://github.com/ktwerts/495-group6/actions/runs/45521937786)
+ran on a push to `main` at commit `cd5d949` and succeeded in every job. The test
+numbers come from each job's summary; the JUnit and coverage reports are attached to
+the run as the `test-reports-py3.11`, `test-reports-py3.12` and `test-reports-py3.13`
+artifacts.
+
+| Job | Python | Tests | Passed | Failures | Errors | Skipped | Line coverage |
+|-----|--------|------:|-------:|---------:|-------:|--------:|--------------:|
+| Tests | 3.11 | 229 | 228 | 0 | 0 | 1 | 97.2% |
+| Tests | 3.12 | 229 | 228 | 0 | 0 | 1 | 97.2% |
+| Tests | 3.13 | 229 | 228 | 0 | 0 | 1 | 97.2% |
+
+| Job | Result |
+|-----|--------|
+| Lint (ruff) | Passed: `ruff check` and `ruff format --check` |
+| Security scan | Passed: Bandit (`-ll`) reported no issues; pip-audit found no known vulnerabilities in `requirements.txt` |
+| Build check (app boots + seeds) | Passed: seeds the database, logs in, loads every page, trains and reads the forecast, then runs the absence → recommendation → approval workflow; log ends `Smoke test OK` |
+
+CI fails the test jobs below 80% coverage (`--cov-fail-under=80`).
+[CI run #106](https://github.com/ktwerts/495-group6/actions/runs/45520719030) on
+`1f81cb1` (the merge of PR #16, the last code change) shows the same results.
+The only commits after it add Kaden's refinement report.
+
+**Skipped tests.** `tests/test_scheduling.py`, `tests/test_integration.py` and
+`tests/test_performance.py` contain no skips. The single skip in the suite is
+`test_employee_can_only_view_own_record` in `tests/test_employees.py`: the Alpha
+provides manager-only employee management, and the employee self-service record
+endpoint it would test is deferred. Its skip reason states that scope.
 
 ## Local verification history
 
@@ -59,16 +90,17 @@ Never seed a database whose contents need preserving.
 
 - [ ] PR #13 merged after its checks and available review feedback are assessed.
 - [ ] PR #14, including this evidence document, merged after its checks pass.
-- [ ] Final submitted main commit recorded here.
-- [ ] Successful CI link for that exact commit recorded here.
-- [ ] Test counts, coverage, and skips recorded for each of Python 3.11, 3.12, and 3.13 from CI summaries.
-- [ ] Build and security results confirmed for that run; reports downloaded or linked.
+- [x] Final submitted main commit recorded here.
+- [x] Successful CI link for that exact commit recorded here.
+- [x] Test counts, coverage, and skips recorded for each of Python 3.11, 3.12, and 3.13 from CI summaries.
+- [x] Build and security results confirmed for that run; reports downloaded or linked.
 - [ ] Final demo completed against the submitted commit.
 - [ ] Each individual's report verified at exactly 250 words and submitted through the LMS.
 - [ ] Repository copies of available reports included; missing reports identified.
 - [ ] Actual reviewer re-verification linked where supplied; absent approvals remain identified.
 - [ ] Submission archive and repository reference point to the same final revision.
 
-Final submitted commit: pending.
+Final submitted commit: `cd5d949` (current `main`). If more commits land on `main`
+before submission, record the new commit and its CI run here.
 
-Final CI run: pending.
+Final CI run: [CI run #108](https://github.com/ktwerts/495-group6/actions/runs/45521937786), succeeded.
