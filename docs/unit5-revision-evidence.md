@@ -1,8 +1,9 @@
 # Unit 5 revision evidence
 
 This record maps the professor's feedback to implementation and verification.
-PRs #13 and #14 remain open for teammate review. Final release verification is
-pending their merge and any subsequent changes.
+PRs #13 and #14 have been merged. Additional peer-review documentation
+and individual refinement report updates were completed on November 24, 2026.
+Final release verification must correspond to the final submitted commit.
 
 ## Feedback and corrective work
 
@@ -11,10 +12,10 @@ pending their merge and any subsequent changes.
 | Complete absence management and replacement coverage | Full-day absence recording reopens assigned shifts. Recommendations apply active status, qualifications, availability, overlap, absence, and weekly-hour checks. Manager approval rechecks eligibility and updates assignments. | [PR #11](https://github.com/ktwerts/495-group6/pull/11), merged. Browser checks covered successful coverage and no eligible replacement. |
 | Prove module integration | The seeded integration test records an absence, retrieves recommendations, approves coverage, and verifies Forecasting's scheduled count and gap before and after changes. | `tests/test_integration.py::test_approved_replacement_closes_forecast_gap`. Uses actual API calls and staffing counts. |
 | Complete skipped workflow and performance tests | Implemented Scheduling workflow tests, the replacement integration test, and the 50-employee recommendation benchmark. | `tests/test_scheduling.py`, `tests/test_integration.py`, and `tests/test_performance.py`. One employee self-service test remains explicitly deferred. |
-| Supply supported-version CI evidence | Current main passed Ruff, formatting, Bandit, dependency audit, Python 3.11–3.13 tests, and build smoke checks. | [CI run #108](https://github.com/ktwerts/495-group6/actions/runs/45521937786) on main, commit `cd5d949`. Per-version results under [GitHub Actions CI results](#github-actions-ci-results). |
-| Preserve completed peer-review records | Four records link original reviews, required corrections, corrective commits, and verification limitations. Assignment table includes all three teammates. | [PR #14](https://github.com/ktwerts/495-group6/pull/14), open. See [review assignments](peer-reviews/README.md). Follow-up approvals are absent from the original reviewed PRs. |
+| Supply supported-version CI evidence | Main at commit `cd5d949` passed Ruff, formatting, Bandit, dependency audit, Python 3.11–3.13 tests, and build smoke checks. | [CI run #108](https://github.com/ktwerts/495-group6/actions/runs/45521937786). Per-version results under [GitHub Actions CI results](#github-actions-ci-results). |
+| Preserve completed peer-review records | Four records link original reviews, required corrections, corrective commits, and verification limitations. Assignment table includes all three teammates. Diana completed retrospective verification on November 24 and posted a follow-up confirmation on PR #3. | [PR #14](https://github.com/ktwerts/495-group6/pull/14), merged. See [review assignments](peer-reviews/README.md) and [Diana's review record](peer-reviews/diana-reviews-staffing-history.md). Original pre-merge approvals remain absent where documented. |
 | Mitigate TD-2 | Managers can configure and edit weekly limits. Scheduling enforces them. Edits below assigned hours in the current or future weeks return 409. | [PR #12](https://github.com/ktwerts/495-group6/pull/12), merged. API, Scheduling, boundary, permission, and browser checks completed. |
-| Mitigate TD-1 | Added failed-login limits, JSON 429 responses, expiry recovery, and IP isolation tests. | [PR #13](https://github.com/ktwerts/495-group6/pull/13), open; [successful PR run](https://github.com/ktwerts/495-group6/actions/runs/45319767027). In-memory counter limitations remain documented. |
+| Mitigate TD-1 | Added failed-login limits, JSON 429 responses, expiry recovery, and IP isolation tests. | [PR #13](https://github.com/ktwerts/495-group6/pull/13), merged; [successful PR run](https://github.com/ktwerts/495-group6/actions/runs/45319767027). In-memory counter limitations remain documented. |
 | Evaluate TD-3 using representative data | Synthetic-data model evaluation and weekday-baseline comparison exist. Representative real/public staffing evaluation is outstanding. | [AI feature documentation](ai-feature.md) and [debt log](technical-debt.md). Synthetic performance does not establish workplace accuracy. |
 
 ## GitHub Actions CI results
@@ -39,8 +40,8 @@ artifacts.
 
 CI fails the test jobs below 80% coverage (`--cov-fail-under=80`).
 [CI run #106](https://github.com/ktwerts/495-group6/actions/runs/45520719030) on
-`1f81cb1` (the merge of PR #16, the last code change) shows the same results.
-The only commits after it add Kaden's refinement report.
+`1f81cb1` (the merge of PR #16) shows the same results.
+Subsequent commits include refinement reports and peer-review documentation updates.
 
 **Skipped tests.** `tests/test_scheduling.py`, `tests/test_integration.py` and
 `tests/test_performance.py` contain no skips. The single skip in the suite is
@@ -83,24 +84,45 @@ Never seed a database whose contents need preserving.
    scheduled count recovers. A previously absent employee remains ineligible.
 6. Edit a weekly-hour limit. Demonstrate a successful edit and a rejected
    reduction below already assigned hours, with explanatory feedback.
-7. After PR #13 merges, demonstrate five failed logins followed by a 429 response.
+7. Demonstrate five failed logins followed by a 429 response.
    Wait for expiry before attempting the correct credentials from that IP.
+
+## Individual refinement reports
+
+Diana's revised individual Refinement Report documents her scheduling
+implementation, peer-review corrections, technical debt analysis, and
+retrospective verification of the staffing-history module.
+
+- [Diana Arango's Refinement Report](refinement-reports/diana-arango.md)
+- [Jason Davis's Refinement Report](refinement-reports/jason-davis.md)
+
+Kaden's refinement report was previously added to the repository.
+
+Diana completed retrospective verification on November 24, 2026, through
+code inspection and review of five regression tests associated with corrective
+commit `4427225`. A follow-up confirmation was posted on
+[PR #3](https://github.com/ktwerts/495-group6/pull/3).
+This verification occurred after the original merge and did not involve
+independent test execution.
 
 ## Submission completion checklist
 
-- [ ] PR #13 merged after its checks and available review feedback are assessed.
-- [ ] PR #14, including this evidence document, merged after its checks pass.
-- [x] Final submitted main commit recorded here.
-- [x] Successful CI link for that exact commit recorded here.
-- [x] Test counts, coverage, and skips recorded for each of Python 3.11, 3.12, and 3.13 from CI summaries.
-- [x] Build and security results confirmed for that run; reports downloaded or linked.
+- [x] PR #13 merged.
+- [x] PR #14 merged.
+- [ ] Final submitted main commit recorded here.
+- [ ] Successful CI link for that exact commit recorded here.
+- [x] Test counts, coverage, and skips recorded for each of Python 3.11, 3.12, and 3.13 from CI run #108.
+- [x] Build and security results confirmed for CI run #108.
 - [ ] Final demo completed against the submitted commit.
 - [ ] Each individual's report verified at exactly 250 words and submitted through the LMS.
-- [ ] Repository copies of available reports included; missing reports identified.
-- [ ] Actual reviewer re-verification linked where supplied; absent approvals remain identified.
+- [ ] All repository copies of individual reports confirmed.
+- [x] Diana's retrospective peer-review verification documented and follow-up confirmation posted on PR #3.
+- [ ] All remaining reviewer confirmations and verification limitations documented.
 - [ ] Submission archive and repository reference point to the same final revision.
 
-Final submitted commit: `cd5d949` (current `main`). If more commits land on `main`
-before submission, record the new commit and its CI run here.
+Previously verified commit: `cd5d949`.
 
-Final CI run: [CI run #108](https://github.com/ktwerts/495-group6/actions/runs/45521937786), succeeded.
+Previously verified CI run: [CI run #108](https://github.com/ktwerts/495-group6/actions/runs/45521937786), succeeded.
+
+The final submitted commit and corresponding CI run must be updated
+after all remaining documentation changes are merged.
