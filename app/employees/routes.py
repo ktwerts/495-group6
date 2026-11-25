@@ -52,7 +52,5 @@ def update_weekly_hours(employee_id: int):
     return jsonify(employee)
 
 
-# TODO(Interface Designer): add the rest of the employee endpoints you define in
-# docs/api-spec.md, for example create, get one, update, deactivate and set availability.
-# Use @role_required("manager") for manager-only routes and the helpers in
-# app/validation.py to parse input.
+# TODO(Interface Designer): get one employee, update details and deactivate are still
+# to build (see docs/api-spec.md). Use @role_required("manager") for manager-only routes.

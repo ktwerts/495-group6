@@ -39,6 +39,9 @@ def create_app(config_name: str | None = None, overrides: dict | None = None) ->
     register_error_handlers(app)
     from app.auth.limiter import limiter
 
+    # The limiter is one module-level object (route decorators need it at import time).
+    # init_app() gives it fresh in-memory storage, so every create_app() call starts with
+    # empty counters. Tests rely on that; a server runs one app, so it never happens there.
     limiter.init_app(app)
 
     from app.auth.routes import bp as auth_bp

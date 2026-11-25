@@ -211,28 +211,70 @@ def count_scheduled_staff_between(start: str, end: str) -> dict[str, int]:
     """Scheduled staff for every date from start to end (inclusive), in one query.
 
     Returns {"YYYY-MM-DD": count}; dates with nobody scheduled can be left out (counted as 0).
-    Integration point: forecasting uses this when it exists, and falls back to
-    count_scheduled_staff() once per day until then.
+    Integration point: forecasting uses this for a date range in one query.
     """
-    raise NotImplementedError("scheduling.count_scheduled_staff_between")
+    _parse_date(start)
+    _parse_date(end)
+    if start > end:
+        raise ValidationError("Start date cannot be after end date.")
+
+    rows = (
+        get_db()
+        .execute(
+            """
+        SELECT date, COUNT(DISTINCT employee_id) AS total
+        FROM shifts
+        WHERE date BETWEEN ? AND ?
+          AND employee_id IS NOT NULL
+          AND status = 'assigned'
+        GROUP BY date
+        """,
+            (start, end),
+        )
+        .fetchall()
+    )
+    return {row["date"]: int(row["total"]) for row in rows}
 
 
-def report_absence(employee_id: int, on_date: str) -> dict:
-    """Record a full-day absence and reopen the employee's assigned shifts."""
+def _parse_date(value) -> str:
+    """Return a strict YYYY-MM-DD date string, or raise ValidationError."""
     try:
-        parsed_date = date.fromisoformat(on_date)
-        if parsed_date.isoformat() != on_date:
+        if date.fromisoformat(value).isoformat() != value:
             raise ValueError()
     except (TypeError, ValueError):
         raise ValidationError("Date must use YYYY-MM-DD format.") from None
+    return value
+
+
+def report_absence(employee_id: int, on_date: str, reason=None) -> dict:
+    """Record a full-day absence and reopen the employee's assigned shifts.
+
+    One absence per employee per date: a repeat report returns 409.
+    """
+    _parse_date(on_date)
+    if reason is not None and not isinstance(reason, str):
+        raise ValidationError("reason must be text.")
+    reason = (reason or "").strip() or None
+    if reason is not None and len(reason) > 200:
+        raise ValidationError("reason must be at most 200 characters")
 
     _get_employee(employee_id)
     db = get_db()
 
     with db:
-        cursor = db.execute(
-            "INSERT INTO absences (employee_id, date) VALUES (?, ?)",
+        db.execute("BEGIN IMMEDIATE")
+        existing = db.execute(
+            "SELECT id FROM absences WHERE employee_id = ? AND date = ?",
             (employee_id, on_date),
+        ).fetchone()
+        if existing is not None:
+            raise ConflictError(
+                "Absence already recorded",
+                [f"Employee {employee_id} already has an absence on {on_date}."],
+            )
+        cursor = db.execute(
+            "INSERT INTO absences (employee_id, date, reason) VALUES (?, ?, ?)",
+            (employee_id, on_date, reason),
         )
         absence_id = cursor.lastrowid
         db.execute(
@@ -244,7 +286,24 @@ def report_absence(employee_id: int, on_date: str) -> dict:
             (employee_id, on_date),
         )
 
-    return {"id": absence_id, "employee_id": employee_id, "date": on_date}
+    return {"id": absence_id, "employee_id": employee_id, "date": on_date, "reason": reason}
+
+
+def cancel_absence(absence_id: int) -> dict:
+    """Delete a mistaken absence so the employee is eligible again that day.
+
+    Shifts reopened by the absence stay open; the manager reassigns them.
+    """
+    db = get_db()
+    with db:
+        row = db.execute(
+            "SELECT id, employee_id, date, reason FROM absences WHERE id = ?",
+            (absence_id,),
+        ).fetchone()
+        if row is None:
+            raise NotFoundError(f"Absence {absence_id} not found")
+        db.execute("DELETE FROM absences WHERE id = ?", (absence_id,))
+    return dict(row)
 
 
 def recommend_replacements(shift_id: int, limit: int = 3) -> list[dict]:
@@ -311,9 +370,8 @@ def approve_replacement(shift_id: int, employee_id: int) -> dict:
         if shift["status"] != "open":
             raise ConflictError("Replacement approval requires an open shift")
 
+        # assign_shift() rechecks eligibility and commits, which releases the lock.
         return assign_shift(shift_id, employee_id)
-
-    return assign_shift(shift_id, employee_id)
 
 
 def validate_weekly_hour_limit(employee_id: int, proposed_limit: float) -> None:
