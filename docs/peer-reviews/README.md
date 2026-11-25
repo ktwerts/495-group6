@@ -21,5 +21,5 @@ PR review with inline comments. A copy goes here so it's part of the submitted r
 |----------|----------------|--------|----|--------|
 | Kaden | Employees | Jason | [#2](https://github.com/ktwerts/495-group6/pull/2) | Review and corrections documented; follow-up approval absent |
 | Jason | Forecast features | Kaden | [#4](https://github.com/ktwerts/495-group6/pull/4) | Corrections reverified November 23; original follow-up approval absent |
-| Jason | Scheduling | Diana | [#6](https://github.com/ktwerts/495-group6/pull/6) | Corrections reverified November 23; original follow-up approval absent|
-| Diana | Staffing history | Kaden | [#3](https://github.com/ktwerts/495-group6/pull/3) | Review and corrections documented; follow-up approval absent |
+| Jason | Scheduling | Diana | [#6](https://github.com/ktwerts/495-group6/pull/6) | Corrections reverified November 23; original follow-up approval absent |
+| Diana | Staffing history | Kaden | [#3](https://github.com/ktwerts/495-group6/pull/3) | Retrospective verification completed November 24 through code inspection and regression test review; follow-up confirmation posted on PR #3 |
